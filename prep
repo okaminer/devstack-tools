@@ -2,9 +2,20 @@
 
 STACK_USER="stack"
 STACK_PASS="stack"
-STACK_DIR="/git"
-STACK_LOCALCONF="${STACK_DIR}/devstack/local.conf"
+GIT_DIR="/git"
+STACK_DIR="${GIT_DIR}/devstack"
 ADMIN_PASSWORD="secret"
+SCRIPT_DIR=`dirname ${0}`
+
+function transformFile {
+  SOURCE="${1}"
+  TARGET="${2}"
+
+  sed \
+    -e "s|%ADMIN_PASSWORD%|${ADMIN_PASSWORD}|g" \
+    "${SOURCE}" > "${TARGET}"
+}
+
 
 echo "This script prepares a system for running devstack"
 echo "it assumes that the node is running Ubuntu 1[46].04"
@@ -27,34 +38,29 @@ if [ ! -f /etc/sudoers.d/${STACK_USER} ]; then
    echo "${STACK_USER} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/${STACK_USER}
 fi
 
-echo "Checking to see if the directory:${STACK_DIR} exists"
-if [ ! -d "${STACK_DIR}" ]; then
+echo "Checking to see if the directory:${GIT_DIR} exists"
+if [ ! -d "${GIT_DIR}" ]; then
    echo "Creating the base git directory"
-   mkdir -p "${STACK_DIR}"
-   chown -R ${STACK_USER} "${STACK_DIR}"
+   mkdir -p "${GIT_DIR}"
+   chown -R ${STACK_USER} "${GIT_DIR}"
 fi
 
 
 # clone the repo
 echo "Checking to see if the devstack repo exists"
-if [ ! -d "${STACK_DIR}/devstack" ]; then
+if [ ! -d "${STACK_DIR}" ]; then
   echo "Cloning the devstack repo"
-   cd ${STACK_DIR}
-   git clone https://git.openstack.org/openstack-dev/devstack
+  git clone https://git.openstack.org/openstack-dev/devstack "${STACK_DIR}"
 fi
 
-# create the local.conf file
-echo "Checking to see if the devstack local.conf file exists"
-if [ ! -f "${STACK_LOCALCONF}" ]; then
-echo "Creating local.conf"
-cat<<EOF  > ${STACK_LOCALCONF}
-[[local|localrc]]
-ADMIN_PASSWORD=secret
-DATABASE_PASSWORD=$ADMIN_PASSWORD
-RABBIT_PASSWORD=$ADMIN_PASSWORD
-SERVICE_PASSWORD=$ADMIN_PASSWORD
-EOF
-fi
+# create the local configuration files
+for F in "local.conf"; do
+  echo "Checking to see if the file:${F} file exists"
+  if [ ! -f "${STACK_DIR}/${F}" ]; then
+    echo "Creating ${F}"
+    transformFile "${SCRIPT_DIR}/${F}" "${STACK_DIR}/${F}"
+  fi
+done
 
 # make sure it's all owned by the right user
 chown -R ${STACK_USER} "${STACK_DIR}"
