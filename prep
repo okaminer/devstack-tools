@@ -18,7 +18,7 @@ cat /etc/passwd | grep '^stack:'
 if [ $? -eq 1 ]; then
    echo "Creating user: ${STACK_USER}"
    CRYPTED_PASS=`echo ${STACK_PASS} | openssl passwd -crypt -stdin`
-   useradd -d /home/${STACK_USER} -m ${STACK_USER} -p ${CRYPTED_PASS}
+   useradd -d /home/${STACK_USER} -m ${STACK_USER} -p ${CRYPTED_PASS} -s /bin/bash
 fi
 
 echo "Checking to see if sudoers file for ${STACK_USER} exists"
