@@ -1,0 +1,62 @@
+#!/bin/bash
+
+STACK_USER="stack"
+STACK_PASS="stack"
+STACK_DIR="/git"
+STACK_LOCALCONF="${STACK_DIR}/devstack/local.conf"
+ADMIN_PASSWORD="secret"
+
+echo "This script prepares a system for running devstack"
+echo "it assumes that the node is running Ubuntu 1[46].04"
+echo
+
+#
+# Setup the stack user, needs to be done as root
+#
+echo "Checking to see if user:${STACK_USER} exists"
+cat /etc/passwd | grep '^stack:'
+if [ $? -eq 1 ]; then
+   echo "Creating user: ${STACK_USER}"
+   CRYPTED_PASS=`echo ${STACK_PASS} | openssl passwd -crypt -stdin`
+   useradd -d /home/${STACK_USER} -m ${STACK_USER} -p ${CRYPTED_PASS}
+fi
+
+echo "Checking to see if sudoers file for ${STACK_USER} exists"
+if [ ! -f /etc/sudoers.d/${STACK_USER} ]; then
+   echo "Creating sudoers file"
+   echo "${STACK_USER} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/${STACK_USER}
+fi
+
+echo "Checking to see if the directory:${STACK_DIR} exists"
+if [ ! -d "${STACK_DIR}" ]; then
+   echo "Creating the base git directory"
+   mkdir -p "${STACK_DIR}"
+   chown -R ${STACK_USER} "${STACK_DIR}"
+fi
+
+
+# clone the repo
+echo "Checking to see if the devstack repo exists"
+if [ ! -d "${STACK_DIR}/devstack" ]; then
+  echo "Cloning the devstack repo"
+   cd ${STACK_DIR}
+   git clone https://git.openstack.org/openstack-dev/devstack
+fi
+
+# create the local.conf file
+echo "Checking to see if the devstack local.conf file exists"
+if [ ! -f "${STACK_LOCALCONF}" ]; then
+echo "Creating local.conf"
+cat<<EOF  > ${STACK_LOCALCONF}
+[[local|localrc]]
+ADMIN_PASSWORD=secret
+DATABASE_PASSWORD=$ADMIN_PASSWORD
+RABBIT_PASSWORD=$ADMIN_PASSWORD
+SERVICE_PASSWORD=$ADMIN_PASSWORD
+EOF
+fi
+
+# make sure it's all owned by the right user
+chown -R ${STACK_USER} "${STACK_DIR}"
+
+echo "You should now be able to 'su' to ${STACK_USER} and run ${STACK_DIR}/devstack/stack.sh"
