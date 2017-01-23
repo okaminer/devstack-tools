@@ -65,4 +65,4 @@ done
 # make sure it's all owned by the right user
 chown -R ${STACK_USER} "${STACK_DIR}"
 
-echo "You should now be able to 'su' to ${STACK_USER} and run ${STACK_DIR}/devstack/stack.sh"
+echo "You should now be able to 'su' to ${STACK_USER} and run ${STACK_DIR}/stack.sh"
