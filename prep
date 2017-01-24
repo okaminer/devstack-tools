@@ -58,7 +58,7 @@ for F in "local.conf"; do
   echo "Checking to see if the file:${F} file exists"
   if [ ! -f "${STACK_DIR}/${F}" ]; then
     echo "Creating ${F}"
-    transformFile "${SCRIPT_DIR}/${F}" "${STACK_DIR}/${F}"
+    transformFile "${SCRIPT_DIR}/files/${F}" "${STACK_DIR}/${F}"
   fi
 done
 
@@ -70,6 +70,7 @@ chown -R ${STACK_USER} "${STACK_DIR}"
 # Now setup the ScaleIO SDC
 #
 apt-get install libaio1
+cd "${SCRIPT_DIR}/files"
 tar -xvf  EMC-ScaleIO-sdc-2.0-12000.122.Ubuntu.16.04.x86_64.tar
 ./siob_extract EMC-*.siob
 MDM_IP=192.168.1.132,192.168.1.134 dpkg -i EMC-*.deb
