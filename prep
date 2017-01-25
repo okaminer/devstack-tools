@@ -69,21 +69,30 @@ chown -R ${STACK_USER} "${STACK_DIR}"
 #
 # Now setup the ScaleIO SDC
 #
-echo "Installing ScaleIO SDC..."
-# install the dependencies
-echo "Installing dependencies"
-apt-get install libaio1
-echo "installing SDC"
-cd "${SCRIPT_DIR}/files"
-tar -xvf  EMC-ScaleIO-sdc-2.0-12000.122.Ubuntu.16.04.x86_64.tar
-./siob_extract EMC-*.siob
-MDM_IP=192.168.1.132,192.168.1.134 dpkg -i EMC-*.deb
-# copy in the scaleio scini update config file
-# cp driver_sync.conf /bin/emc/scaleio/scini_sync
-# restart scini to laod the right kernel module
-echo "restarting the scini service"
-/etc/init.d/scini restart
+# check what operating system I am on
+VARIANT=`lsb_release -si`
 
+if [ "${VARIANT}" == " Ubuntu" ]; then
+  echo "Installing ScaleIO SDC..."
+  # install the dependencies
+  echo "Installing dependencies"
+  apt-get install libaio1
+  echo "installing SDC"
+  cd "${SCRIPT_DIR}/files"
+  tar -xvf  EMC-ScaleIO-sdc-2.0-12000.122.Ubuntu.16.04.x86_64.tar
+  ./siob_extract EMC-*.siob
+  MDM_IP=192.168.1.132,192.168.1.134 dpkg -i EMC-*.deb
+  # copy in the scaleio scini update config file
+  # cp driver_sync.conf /bin/emc/scaleio/scini_sync
+  # restart scini to laod the right kernel module
+  echo "restarting the scini service"
+  /etc/init.d/scini restart
+elif [ "${VARIANT}" == "RedHat" ]; then
+  rpm -U "${SCRIPT_DIR}/files/EMC*.rpm"
+else
+  echo "Unknown linux variant"
+  exit 1
+fi
 
 
 echo "You should now be able to 'su' to ${STACK_USER} and run ${STACK_DIR}/stack.sh"
