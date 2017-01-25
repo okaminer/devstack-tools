@@ -81,7 +81,7 @@ if [ "${VARIANT}" == " Ubuntu" ]; then
   echo "Installing dependencies"
   apt-get install libaio1
   echo "installing SDC"
-  cd "${SCRIPT_DIR}/files"
+  cd "${SCRIPT_DIR}/scaleio"
   tar -xvf  EMC-ScaleIO-sdc-2.0-12000.122.Ubuntu.16.04.x86_64.tar
   ./siob_extract EMC-*.siob
   MDM_IP=192.168.1.132,192.168.1.134 dpkg -i EMC-*.deb
@@ -91,7 +91,7 @@ if [ "${VARIANT}" == " Ubuntu" ]; then
   echo "restarting the scini service"
   /etc/init.d/scini restart
 elif [ "${VARIANT}" == "CentOS" ]; then
-  rpm -U "${SCRIPT_DIR}/files/EMC*.rpm"
+  rpm -U "${SCRIPT_DIR}/scaleio/EMC*.rpm"
 else
   echo "Unknown linux variant"
   exit 1
