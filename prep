@@ -71,6 +71,9 @@ chown -R ${STACK_USER} "${STACK_DIR}"
 #
 # check what operating system I am on
 VARIANT=`lsb_release -si`
+if [ $? -ne 0 ]; then
+  VARIANT="CentOS"
+fi
 
 if [ "${VARIANT}" == " Ubuntu" ]; then
   echo "Installing ScaleIO SDC..."
@@ -87,7 +90,7 @@ if [ "${VARIANT}" == " Ubuntu" ]; then
   # restart scini to laod the right kernel module
   echo "restarting the scini service"
   /etc/init.d/scini restart
-elif [ "${VARIANT}" == "RedHat" ]; then
+elif [ "${VARIANT}" == "CentOS" ]; then
   rpm -U "${SCRIPT_DIR}/files/EMC*.rpm"
 else
   echo "Unknown linux variant"
