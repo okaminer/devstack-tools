@@ -91,7 +91,7 @@ if [ "${VARIANT}" == " Ubuntu" ]; then
   echo "restarting the scini service"
   /etc/init.d/scini restart
 elif [ "${VARIANT}" == "CentOS" ]; then
-  rpm -U "${SCRIPT_DIR}/scaleio/EMC*.rpm"
+  MDM_IP=192.168.1.132,192.168.1.134 rpm -U "${SCRIPT_DIR}/scaleio/EMC*.rpm"
 else
   echo "Unknown linux variant"
   exit 1
