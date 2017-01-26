@@ -94,6 +94,7 @@ if [ "${VARIANT}" == " Ubuntu" ]; then
   echo "restarting the scini service"
   /etc/init.d/scini restart
 elif [ "${VARIANT}" == "CentOS" ]; then
+  yum -y install libaio
   rpm -U "${SCRIPT_DIR}/scaleio/EMC*.rpm"
 else
   echo "Unknown linux variant"
