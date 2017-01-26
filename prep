@@ -63,6 +63,9 @@ for F in "local.conf"; do
   fi
 done
 
+# we need to set http.sslVerify to false to pull code from behind the DellEMC firewall
+su - ${STACK_USER} -c "git config --global http.sslVerify false"
+
 # make sure it's all owned by the right user
 chown -R ${STACK_USER} "${STACK_DIR}"
 
@@ -74,6 +77,7 @@ chown -R ${STACK_USER} "${STACK_DIR}"
 VARIANT=`lsb_release -si`
 if [ $? -ne 0 ]; then
   VARIANT="CentOS"
+  echo "lsb_release was not found, assuming ${VARIANT}"
 fi
 
 export MDM_IP="${MDM}"
