@@ -6,7 +6,7 @@ GIT_DIR="/git"
 STACK_DIR="${GIT_DIR}/devstack"
 ADMIN_PASSWORD="secret"
 SCRIPT_DIR=`dirname ${0}`
-MDM="192.168.132,192.168.1.134"
+MDM="192.168.1.132,192.168.1.134"
 
 function transformFile {
   SOURCE="${1}"
