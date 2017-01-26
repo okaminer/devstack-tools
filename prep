@@ -50,7 +50,7 @@ fi
 echo "Checking to see if the devstack repo exists"
 if [ ! -d "${STACK_DIR}" ]; then
   echo "Cloning the devstack repo"
-  git clone https://git.openstack.org/openstack-dev/devstack "${STACK_DIR}"
+  git -c http.sslVerify=false clone https://git.openstack.org/openstack-dev/devstack "${STACK_DIR}"
 fi
 
 # create the local configuration files
