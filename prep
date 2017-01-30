@@ -1,4 +1,10 @@
 #!/bin/bash
+#
+# Script to setup devstack with a config for ScaleIO behind cinder
+#
+# Ubuntu 16.04      Tested and working
+# CentOS 7          Experimental support
+#
 
 STACK_USER="stack"
 STACK_PASS="stack"
