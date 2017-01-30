@@ -7,6 +7,7 @@ STACK_DIR="${GIT_DIR}/devstack"
 ADMIN_PASSWORD="secret"
 SCRIPT_DIR=`dirname ${0}`
 MDM="192.168.1.132,192.168.1.134"
+MDM="10.136.223.115,10.136.223.116"
 
 function transformFile {
   SOURCE="${1}"
@@ -77,12 +78,13 @@ chown -R ${STACK_USER} "${STACK_DIR}"
 VARIANT=`lsb_release -si`
 if [ $? -ne 0 ]; then
   VARIANT="CentOS"
+  # VARIANT="Ubuntu"
   echo "lsb_release was not found, assuming ${VARIANT}"
 fi
 
 export MDM_IP="${MDM}"
 
-if [ "${VARIANT}" == " Ubuntu" ]; then
+if [ "${VARIANT}" == "Ubuntu" ]; then
   echo "Installing ScaleIO SDC..."
   # install the dependencies
   echo "Installing dependencies"
@@ -93,7 +95,8 @@ if [ "${VARIANT}" == " Ubuntu" ]; then
   ./siob_extract EMC-*.siob
   dpkg -i EMC-*.deb
   # copy in the scaleio scini update config file
-  # cp driver_sync.conf /bin/emc/scaleio/scini_sync
+  cp driver_sync.conf /bin/emc/scaleio/scini_sync
+  sleep 60
   # restart scini to laod the right kernel module
   echo "restarting the scini service"
   /etc/init.d/scini restart
