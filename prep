@@ -10,25 +10,17 @@ SCRIPT_DIR=`dirname ${0}`
 #
 # deployment specific variables
 #
-if [ "${ENVIRONMENT}" == "eric" ]; then
-  #    for eric's network
-  MDM_IPS="192.168.1.132,192.168.1.134"
-  PD="default"
-  SP="default"
-  GATEWAY="192.168.1.134"
-elif [ "${ENVIRONMENT}" == "vsphere" ]; then
-  #    for vm network inside firewall
-  MDM_IPS="10.136.223.115,10.136.223.116"
-  PD="default"
-  SP="defaultSP"
-  GATEWAY="10.136.223.115"
-else
-  echo "an unknown environment was specified"
-  echo "invoke this script like..."
-  echo "sudo ENVIRONMENT=<environment> $0"
+echo "Setting up for environment: ${ENVIRONMENT}"
+if [ -z "${ENVIRONMENT}" -o ! -f "${SCRIPT_DIR}/environments/${ENVIRONMENT}" ]; then
+  echo "either the ENVIRONMENT variable is not set or"
+  echo "it points to a file that does not exist ${SCRIPT_DIR}/environments/${ENVIRONMENT}"
   exit 1
 fi
 
+# source the environment script
+. "${SCRIPT_DIR}/environments/${ENVIRONMENT}"
+
+exit
 
 function transformFile {
   SOURCE="${1}"

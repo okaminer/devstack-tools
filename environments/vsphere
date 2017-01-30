@@ -1,0 +1,6 @@
+#!/bin/bash
+# for vm network inside firewall
+MDM_IPS="10.136.223.115,10.136.223.116"
+PD="default"
+SP="defaultSP"
+GATEWAY="10.136.223.115"
