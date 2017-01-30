@@ -117,7 +117,6 @@ if [ "${VARIANT}" == "Ubuntu" ]; then
   dpkg -i EMC-*.deb
   # copy in the scaleio scini update config file
   cp driver_sync.conf /bin/emc/scaleio/scini_sync
-  sleep 60
   # restart scini to laod the right kernel module
   echo "restarting the scini service"
   /etc/init.d/scini restart
@@ -126,7 +125,7 @@ elif [ "${VARIANT}" == "CentOS" ]; then
   # install the dependencies
   echo "Installing dependencies"
   yum -y install libaio
-  echo "installing SDC"  
+  echo "installing SDC"
   rpm -U "${SCRIPT_DIR}/scaleio/EMC*.rpm"
 else
   echo "Unknown linux variant"
