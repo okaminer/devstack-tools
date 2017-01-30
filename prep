@@ -7,20 +7,22 @@ STACK_DIR="${GIT_DIR}/devstack"
 ADMIN_PASSWORD="secret"
 SCRIPT_DIR=`dirname ${0}`
 
-#
-# deployment specific variables
-#
-echo "Setting up for environment: ${ENVIRONMENT}"
-if [ -z "${ENVIRONMENT}" -o ! -f "${SCRIPT_DIR}/environments/${ENVIRONMENT}" ]; then
-  echo "either the ENVIRONMENT variable is not set or"
-  echo "it points to a file that does not exist ${SCRIPT_DIR}/environments/${ENVIRONMENT}"
-  exit 1
-fi
 
-# source the environment script
-. "${SCRIPT_DIR}/environments/${ENVIRONMENT}"
-
-exit
+function usage {
+  echo
+  echo "Sets up a system to run devstack, configured to use ScaleIO for Cinder"
+  echo "Requires an environment variable to be set to the name of the environment"
+  echo "which must match the name of a file in the "
+  echo "`dirname ${0}`/environments directory"
+  echo
+  echo "For example, to setup an environment called fubar:"
+  echo " 1) Create a file in the environments directort called fubar with content"
+  echo "    similar to the existing files"
+  echo " 2) Invoke this script as:"
+  echo "    sudo ENVIRONMENT=fubar ${0}"
+  echo
+  exit
+}
 
 function transformFile {
   SOURCE="${1}"
@@ -35,9 +37,21 @@ function transformFile {
 }
 
 
-echo "This script prepares a system for running devstack"
-echo "it assumes that the node is running Ubuntu 1[46].04"
-echo
+
+
+#
+# deployment specific variables
+#
+echo "Setting up for environment: ${ENVIRONMENT}"
+if [ -z "${ENVIRONMENT}" -o ! -f "${SCRIPT_DIR}/environments/${ENVIRONMENT}" ]; then
+  echo "ERROR: ENVIRONMENT not found"
+  echo
+
+  usage
+fi
+
+# source the environment script
+. "${SCRIPT_DIR}/environments/${ENVIRONMENT}"
 
 #
 # Setup the stack user, needs to be done as root
