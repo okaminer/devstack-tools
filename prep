@@ -6,8 +6,29 @@ GIT_DIR="/git"
 STACK_DIR="${GIT_DIR}/devstack"
 ADMIN_PASSWORD="secret"
 SCRIPT_DIR=`dirname ${0}`
-MDM="192.168.1.132,192.168.1.134"
-MDM="10.136.223.115,10.136.223.116"
+
+#
+# deployment specific variables
+#
+if [ "${ENVIRONMENT}" == "eric" ]; then
+  #    for eric's network
+  MDM_IPS="192.168.1.132,192.168.1.134"
+  PD="default"
+  SP="default"
+  GATEWAY="192.168.1.134"
+elif [ "${ENVIRONMENT}" == "vsphere" ]; then
+  #    for vm network inside firewall
+  MDM_IPS="10.136.223.115,10.136.223.116"
+  PD="default"
+  SP="defaultSP"
+  GATEWAY="10.136.223.115"
+else
+  echo "an unknown environment was specified"
+  echo "invoke this script like..."
+  echo "sudo ENVIRONMENT=<environment> $0"
+  exit 1
+fi
+
 
 function transformFile {
   SOURCE="${1}"
@@ -15,6 +36,9 @@ function transformFile {
 
   sed \
     -e "s|%ADMIN_PASSWORD%|${ADMIN_PASSWORD}|g" \
+    -e "s|%PROTECTIONDOMAIN%|${PD}|g" \
+    -e "s|%STORAGEPOOL%|${SP}|g" \
+    -e "s|%GATEWAY%|${GATEWAY}|g" \
     "${SOURCE}" > "${TARGET}"
 }
 
@@ -47,7 +71,6 @@ if [ ! -d "${GIT_DIR}" ]; then
    chown -R ${STACK_USER} "${GIT_DIR}"
 fi
 
-
 # clone the repo
 echo "Checking to see if the devstack repo exists"
 if [ ! -d "${STACK_DIR}" ]; then
@@ -70,7 +93,6 @@ su - ${STACK_USER} -c "git config --global http.sslVerify false"
 # make sure it's all owned by the right user
 chown -R ${STACK_USER} "${STACK_DIR}"
 
-
 #
 # Now setup the ScaleIO SDC
 #
@@ -78,11 +100,10 @@ chown -R ${STACK_USER} "${STACK_DIR}"
 VARIANT=`lsb_release -si`
 if [ $? -ne 0 ]; then
   VARIANT="CentOS"
-  # VARIANT="Ubuntu"
   echo "lsb_release was not found, assuming ${VARIANT}"
 fi
 
-export MDM_IP="${MDM}"
+export MDM_IP="${MDM_IPS}"
 
 if [ "${VARIANT}" == "Ubuntu" ]; then
   echo "Installing ScaleIO SDC..."
@@ -101,7 +122,11 @@ if [ "${VARIANT}" == "Ubuntu" ]; then
   echo "restarting the scini service"
   /etc/init.d/scini restart
 elif [ "${VARIANT}" == "CentOS" ]; then
+  echo "Installing ScaleIO SDC..."
+  # install the dependencies
+  echo "Installing dependencies"
   yum -y install libaio
+  echo "installing SDC"  
   rpm -U "${SCRIPT_DIR}/scaleio/EMC*.rpm"
 else
   echo "Unknown linux variant"
