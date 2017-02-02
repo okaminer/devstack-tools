@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # defaults
-WORKSPACE="~/workspace"
+WORKSPACE="$HOME/workspace"
 PYTHON="/usr/bin/python3"
 
 
@@ -40,7 +40,13 @@ fi
 echo "Setting up virtualenv"
 virtualenv -p "${PYTHON}" "${WORKSPACE}"
 
-echo "all set up. You should now b able to cd into ${WORKSPACE} and ..."
+cd "${WORKSPACE}"
+source bin/activate
+pip install bindep
+pip install tox
+deactivate
+
+echo "all set up. You should now be able to cd into ${WORKSPACE} and ..."
 echo "run 'source bin/activate'"
 
 exit 0
