@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# defaults
+WORKSPACE="~/workspace"
+PYTHON="/usr/bin/python3"
+
+
+
+# check what operating system I am on
+VARIANT=`lsb_release -si`
+if [ $? -ne 0 ]; then
+  VARIANT="CentOS"
+  echo "lsb_release was not found, assuming ${VARIANT}"
+fi
+
+if [ "${VARIANT}" == "Ubuntu" ]; then
+  echo "Installing dependencies"
+  sudo apt-get install -y \
+     build-essential \
+     libpq-dev \
+     python3-dev \
+     virtualenv
+
+elif [ "${VARIANT}" == "CentOS" ]; then
+  echo "Running on CentOS"
+
+else
+  echo "Unknown linux variant: ${VARIANT}"
+  exit 1
+fi
+
+
+if [ ! -d "${WORKSPACE}" ]; then
+  mkdir -p "${WORKSPACE}"
+else
+  echo "Workspace, ${WORKSPACE}, already exists. Exiting"
+  exit 1
+fi
+
+echo "Setting up virtualenv"
+virtualenv -p "${PYTHON}" "${WORKSPACE}"
+
+echo "all set up. You should now b able to cd into ${WORKSPACE} and ..."
+echo "run 'source bin/activate'"
+
+exit 0
