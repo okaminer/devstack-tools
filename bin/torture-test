@@ -21,32 +21,46 @@ SIO_VOLUME_TYPE_THICK="ScaleIO-Thick"
 
 
 function show-volume-types {
-  cinder type-list
+  openstack volume type list
 }
 
 function create-volume-types {
 
   # thin
-  cinder $CMD_OPTS type-create "${SIO_VOLUME_TYPE_THIN}"
-  cinder $CMD_OPTS type-key "${SIO_VOLUME_TYPE_THIN}" set volume_backend_name=scaleio provisioning:type=thin
+  openstack volume type create "${SIO_VOLUME_TYPE_THIN}" $CMD_OPTS
+  openstack volume type set --property volume_backend_name=scaleio "${SIO_VOLUME_TYPE_THIN}" $CMD_OPTS
+  openstack volume type set --property provisioning:type=thin "${SIO_VOLUME_TYPE_THIN}" $CMD_OPTS
 
   # thick
-  cinder $CMD_OPTS type-create "${SIO_VOLUME_TYPE_THICK}"
-  cinder $CMD_OPTS type-key "${SIO_VOLUME_TYPE_THICK}" set volume_backend_name=scaleio provisioning:type=thick
+  openstack volume type create "${SIO_VOLUME_TYPE_THICK}" $CMD_OPTS
+  openstack volume type set --property volume_backend_name=scaleio "${SIO_VOLUME_TYPE_THICK}" $CMD_OPTS
+  openstack volume type set --property provisioning:type=thick "${SIO_VOLUME_TYPE_THICK}" $CMD_OPTS
 
 }
 
 function delete-volume-types {
 
   # thin
-  cinder $CMD_OPTS type-delete "${SIO_VOLUME_TYPE_THIN}"
+  openstack volume type delete "${SIO_VOLUME_TYPE_THIN}" $CMD_OPTS
   # thick
-  cinder $CMD_OPTS type-delete "${SIO_VOLUME_TYPE_THICK}"
+  openstack volume type delete "${SIO_VOLUME_TYPE_THICK}" $CMD_OPTS
 
 }
 
+# create some volumes
+# NOTE: SCaleIO created volumes in size multiples of 8GB, asking for 1GB gets you 8GB
+#
+function create-volumes {
+  # thin
+  openstack volume create --type "${SIO_VOLUME_TYPE_THIN}" --size 1 thin-volume
 
+  # thick
+  openstack volume create --type "${SIO_VOLUME_TYPE_THICK}" --size 1 thick-volume
+}
 
+function delete-volumes {
+  openstack volume delete volume [volume]
+}
 
 
 
@@ -56,4 +70,5 @@ function delete-volume-types {
 
 create-volume-types
 show-volume-types
+create-volumes
 delete-volume-types
