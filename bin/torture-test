@@ -13,6 +13,7 @@
 # - Create, list, update, and delete consistency groups
 # - Create, list, update, and delete consistency group snapshots
 
+CMD_OPTS="--os-username admin --os-tenant-name admin"
 
 # Volume Types
 SIO_VOLUME_TYPE_THIN="ScaleIO-Thin"
@@ -26,21 +27,21 @@ function show-volume-types {
 function create-volume-types {
 
   # thin
-  cinder --os-username admin --os-tenant-name admin type-create "${SIO_VOLUME_TYPE_THIN}"
-  cinder --os-username admin --os-tenant-name admin type-key "${SIO_VOLUME_TYPE_THIN}" set volume_backend_name=scaleio provisioning:type=thin
+  cinder $CMD_OPTS type-create "${SIO_VOLUME_TYPE_THIN}"
+  cinder $CMD_OPTS type-key "${SIO_VOLUME_TYPE_THIN}" set volume_backend_name=scaleio provisioning:type=thin
 
   # thick
-  cinder --os-username admin --os-tenant-name admin type-create "${SIO_VOLUME_TYPE_THICK}"
-  cinder --os-username admin --os-tenant-name admin type-key "${SIO_VOLUME_TYPE_THICK}" set volume_backend_name=scaleio provisioning:type=thick
+  cinder $CMD_OPTS type-create "${SIO_VOLUME_TYPE_THICK}"
+  cinder $CMD_OPTS type-key "${SIO_VOLUME_TYPE_THICK}" set volume_backend_name=scaleio provisioning:type=thick
 
 }
 
 function delete-volume-types {
 
   # thin
-  cinder --os-username admin --os-tenant-name admin type-delete "${SIO_VOLUME_TYPE_THIN}"
+  cinder $CMD_OPTS type-delete "${SIO_VOLUME_TYPE_THIN}"
   # thick
-  cinder --os-username admin --os-tenant-name admin type-delete "${SIO_VOLUME_TYPE_THICK}"
+  cinder $CMD_OPTS type-delete "${SIO_VOLUME_TYPE_THICK}"
 
 }
 
