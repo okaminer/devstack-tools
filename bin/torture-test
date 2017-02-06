@@ -13,6 +13,10 @@
 # - Create, list, update, and delete consistency groups
 # - Create, list, update, and delete consistency group snapshots
 
+# command line operations
+CREATE="false"
+DELETE="false"
+
 CMD_OPTS="--os-username admin --os-tenant-name admin"
 
 # Volume Types
@@ -87,16 +91,33 @@ function delete-volumes {
 
 
 #
-# mainline
+# Main script logic starts here
 #
+while getopts "cd" opt; do
+  case $opt in
+    c)
+      CREATE="true"
+      ;;
+    d)
+      DELETE="true"
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument." >&2
+      exit 1
+      ;;
+  esac
+done
 
-setup
 
-create-volume-types
-show-volume-types
-create-volumes
+if [ "${CREATE}" == "true" ]; then
+  setup
+  create-volume-types
+  show-volume-types
+  create-volumes
+fi
 
-read  -n 1 -p "Press any key to start deleting objects:" input
 
-delete-volumes
-delete-volume-types
+if [ "${DELETE}" == "true" ]; then
+  delete-volumes
+  delete-volume-types
+fi
