@@ -1,4 +1,0 @@
-#!/bin/bash
-
-cinder --os-username admin --os-tenant-name admin type-create "ScaleIO Type"
-cinder --os-username admin --os-tenant-name admin type-key "ScaleIO Type" set volume_backend_name=scaleio
