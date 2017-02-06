@@ -21,6 +21,7 @@ SIO_VOLUME_TYPE_THICK="ScaleIO-Thick"
 NUM_VOLUMES=5
 
 function setup {
+  # set the quota on volumes to some high level
   TOTAL_VOLUMES=$((5*$NUM_VOLUMES))
   echo "Settng volume quota on project '${OS_PROJECT_NAME}' to: $TOTAL_VOLUMES"
   openstack quota set --volumes ${TOTAL_VOLUMES} ${OS_PROJECT_NAME}
