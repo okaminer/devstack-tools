@@ -52,14 +52,29 @@ function delete-volume-types {
 #
 function create-volumes {
   # thin
-  openstack volume create --type "${SIO_VOLUME_TYPE_THIN}" --size 1 thin-volume
+  for a in {1..5}; do
+    openstack volume create --type "${SIO_VOLUME_TYPE_THIN}" --size 1 thin-volume-$a
+  done
 
   # thick
-  openstack volume create --type "${SIO_VOLUME_TYPE_THICK}" --size 1 thick-volume
+  for a in {1..5}; do
+    openstack volume create --type "${SIO_VOLUME_TYPE_THICK}" --size 1 thick-volume-$a
+  done
 }
 
 function delete-volumes {
-  openstack volume delete volume [volume]
+  # iterate through all the types and delete all the volumes
+  for T in "${SIO_VOLUME_TYPE_THIN}" "${SIO_VOLUME_TYPE_THICK}"; do
+    echo "Looking for volumes of type: ${T}"
+    # the thin volumes
+    while read line
+    do
+      # openstack volume delete thin-volume
+      VOL=`echo "${line}" | awk -F',' '{print $1}'`
+      echo "Deleting ${T} volume: $VOL"
+      openstack volume delete $VOL
+    done < <(openstack volume list -f csv --long --quote minimal | grep "${T}")
+  done
 }
 
 
@@ -71,4 +86,8 @@ function delete-volumes {
 create-volume-types
 show-volume-types
 create-volumes
+
+read  -n 1 -p "Press any key to start deleting objects:" input
+
+delete-volumes
 delete-volume-types
