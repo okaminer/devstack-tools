@@ -23,8 +23,8 @@ function usage {
   echo "which must match the name of a file in the "
   echo "${PROJECT_DIR}/environments directory"
   echo
-  echo "For example, to setup an environment called fubar:"
-  echo " 1) Create a file in the environments directort called fubar with content"
+  echo "For example, to setup an environment called 'fubar':"
+  echo " 1) Create a file in the environments directory called 'fubar' with content"
   echo "    similar to the existing files"
   echo " 2) Invoke this script as:"
   echo "    sudo ENVIRONMENT=fubar ${0}"
