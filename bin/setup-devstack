@@ -48,10 +48,6 @@ function transformFile {
     "${SOURCE}" > "${TARGET}"
 }
 
-echo "Branch: ${CINDER_BRANCH}"
-echo "Repo:   ${CINDER_REPO}"
-exit 0
-
 
 #
 # deployment specific variables
