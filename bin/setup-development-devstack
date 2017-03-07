@@ -10,6 +10,11 @@ export CINDER_BRANCH="master"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" && pwd )"
 
+# Make sure only root can run our script
+if [ "$(id -u)" != "0" ]; then
+   echo "This script must be run as root" 1>&2
+   exit 1
+fi
 
 # check what operating system I am on
 VARIANT=`lsb_release -si`
@@ -20,7 +25,7 @@ fi
 
 if [ "${VARIANT}" == "Ubuntu" ]; then
   echo "Installing dependencies"
-  sudo apt-get install -y \
+  apt-get install -y \
      build-essential \
      libpq-dev \
      openssh-server \
