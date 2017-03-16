@@ -41,7 +41,7 @@ else
   exit 1
 fi
 
-${SCRIPT_DIR}/setup-devstack
+. ${SCRIPT_DIR}/setup-devstack
 
 
 exit 0
