@@ -60,14 +60,12 @@ fi
 #
 echo "Setting up for environment: ${ENVIRONMENT}"
 if [ -z "${ENVIRONMENT}" -o ! -f "${PROJECT_DIR}/environments/${ENVIRONMENT}" ]; then
-  echo "ERROR: ENVIRONMENT not found"
+  echo "WARNING: ENVIRONMENT not found"
   echo
-
-  usage
+else
+  # source the environment script
+  . "${PROJECT_DIR}/environments/${ENVIRONMENT}"
 fi
-
-# source the environment script
-. "${PROJECT_DIR}/environments/${ENVIRONMENT}"
 
 #
 # Setup the stack user, needs to be done as root
