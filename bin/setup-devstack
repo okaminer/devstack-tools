@@ -18,8 +18,8 @@ PROJECT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" && pwd )"
 CINDER_REPO="${CINDER_REPO:-http://git.openstack.org/openstack/cinder}"
 CINDER_BRANCH="${CINDER_BRANCH:-master}"
 MDM_IPS="${MDM_IPS:-192.168.1.1}"
-PROTECTIONDOMAIN="${PROTECTIONDOMAIN:-default}"
-STORAGEPOOL="${STORAGEPOOL:-default}"
+PD="${PD:-default}"
+SP="${SP:-default}"
 GATEWAY="${GATEWAY:-192.168.1.1}"
 
 function usage {
