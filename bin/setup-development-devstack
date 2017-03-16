@@ -5,8 +5,9 @@
 # defaults
 WORKSPACE="$HOME/workspace"
 PYTHON="/usr/bin/python3"
-export CINDER_REPO="https://github.com/tssgery/cinder.git"
-export CINDER_BRANCH="master"
+# these should be exported prior to invoking this script
+# export CINDER_REPO="https://github.com/tssgery/cinder.git"
+# export CINDER_BRANCH="master"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" && pwd )"
 
