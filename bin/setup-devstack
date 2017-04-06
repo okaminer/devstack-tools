@@ -147,7 +147,7 @@ else
   exit 1
 fi
 
-export MDM_IP="${MDM_IPS}"
+export MDM_IP="${CINDER_SIO_MDM_IPS}"
 
 if [ "${VARIANT}" == "Ubuntu" ]; then
   echo "Installing ScaleIO SDC..."
