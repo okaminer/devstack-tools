@@ -41,9 +41,9 @@ function transformFile {
 
   sed \
     -e "s|%ADMIN_PASSWORD%|${ADMIN_PASSWORD}|g" \
-    -e "s|%PROTECTIONDOMAIN%|${PD}|g" \
-    -e "s|%STORAGEPOOL%|${SP}|g" \
-    -e "s|%GATEWAY%|${GATEWAY}|g" \
+    -e "s|%PROTECTIONDOMAIN%|${CINDER_SIO_PD}|g" \
+    -e "s|%STORAGEPOOL%|${CINDER_SIO_SP}|g" \
+    -e "s|%GATEWAY%|${CINDER_SIO_GATEWAY}|g" \
     -e "s|%CINDER_REPO%|${CINDER_REPO}|g" \
     -e "s|%CINDER_BRANCH%|${CINDER_BRANCH}|g" \
     "${SOURCE}" > "${TARGET}"

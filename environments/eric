@@ -1,6 +1,6 @@
 #!/bin/bash
 # for eric's network
-MDM_IPS="192.168.1.132,192.168.1.134"
-PD="default"
-SP="default"
-GATEWAY="192.168.1.134"
+CINDER_SIO_MDM_IPS="192.168.1.132,192.168.1.134"
+CINDER_SIO_PD="default"
+CINDER_SIO_SP="default"
+CINDER_SIO_GATEWAY="192.168.1.134"
