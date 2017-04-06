@@ -1,0 +1,24 @@
+#!/bin/bash
+#
+# This script simply runs tox, assuming a few things in the environment
+#   CINDER_REPO   (repo to pull cinder from)
+#   CINDER_BRANCH (branch of cinder to pull)
+
+DIRECTORY="/git/cinder"
+
+if [ -z "${CINDER_REPO}" -o -z "${CINDER_BRANCH}" ]; then
+   echo "Either CINDER_REPO or CINDER_BRANCH is not set in the environment"
+   exit
+fi
+
+# pull the repo
+git pull "${CINDER_REPO}" -b "${CINDER_BRANCH}" "${DIRECTORY}"
+
+# cd to the directory
+cd "${DIRECTORY}"
+
+# set the UPPER_CONSTRAINTS_FILE to point to an http (instead of https) URL
+export UPPER_CONSTRAINTS_FILE=http://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt
+
+# run tox
+tox "$@"
