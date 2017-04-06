@@ -12,7 +12,7 @@ if [ -z "${CINDER_REPO}" -o -z "${CINDER_BRANCH}" ]; then
 fi
 
 # pull the repo
-git pull "${CINDER_REPO}" -b "${CINDER_BRANCH}" "${DIRECTORY}"
+git clone "${CINDER_REPO}" -b "${CINDER_BRANCH}" "${DIRECTORY}"
 
 # cd to the directory
 cd "${DIRECTORY}"
@@ -21,4 +21,4 @@ cd "${DIRECTORY}"
 export UPPER_CONSTRAINTS_FILE=http://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt
 
 # run tox
-tox "$@"
+tox "$@" | tee /git/tox-output.txt
