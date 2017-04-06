@@ -17,11 +17,11 @@ OPENSTACK_RELEASE=${OPENSTACK_RELEASE:-master}
 # the cinder repo
 CINDER_REPO=${CINDER_REPO:-http://git.openstack.org/openstack/cinder.git}
 # cinder branch, if not specified, use the openstack version
-CINDER_BRANCH=${CINDER_BRANCH:OPENSTACK_RELEASE}
+CINDER_BRANCH=${CINDER_BRANCH:-$OPENSTACK_RELEASE}
 # the nova repo
 NOVA_REPO=${NOVA_REPO:-http://git.openstack.org/openstack/nova.git}
 # nova branch, if not specified, use the openstack version
-NOVA_BRANCH=${NOVA_BRANCH:OPENSTACK_RELEASE}
+NOVA_BRANCH=${NOVA_BRANCH:-$OPENSTACK_RELEASE}
 
 function usage {
   echo
