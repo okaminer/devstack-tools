@@ -14,10 +14,14 @@ ADMIN_PASSWORD="secret"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" && pwd )"
 OPENSTACK_RELEASE=${OPENSTACK_RELEASE:-master}
-
-
-CINDER_REPO="${CINDER_REPO:-http://git.openstack.org/openstack/cinder}"
-CINDER_BRANCH="${CINDER_BRANCH:-master}"
+# the cinder repo
+CINDER_REPO=${CINDER_REPO:-http://git.openstack.org/openstack/cinder.git}
+# cinder branch, if not specified, use the openstack version
+CINDER_BRANCH=${CINDER_BRANCH:OPENSTACK_RELEASE}
+# the nova repo
+NOVA_REPO=${NOVA_REPO:-http://git.openstack.org/openstack/nova.git}
+# nova branch, if not specified, use the openstack version
+NOVA_BRANCH=${NOVA_BRANCH:OPENSTACK_RELEASE}
 
 function usage {
   echo
@@ -46,6 +50,8 @@ function transformFile {
     -e "s|%GATEWAY%|${CINDER_SIO_GATEWAY}|g" \
     -e "s|%CINDER_REPO%|${CINDER_REPO}|g" \
     -e "s|%CINDER_BRANCH%|${CINDER_BRANCH}|g" \
+    -e "s|%NOVA_REPO%|${NOVA_REPO}|g" \
+    -e "s|%NOVA_BRANCH%|${NOVA_BRANCH}|g" \
     "${SOURCE}" > "${TARGET}"
 }
 
@@ -61,7 +67,7 @@ fi
 #
 echo "Setting up for environment: ${ENVIRONMENT}"
 if [ -z "${ENVIRONMENT}" -o ! -f "${PROJECT_DIR}/environments/${ENVIRONMENT}" ]; then
-  echo "WARNING: ENVIRONMENT not found"
+  echo "WARNING: ENVIRONMENT not found, assuming everything is in environment variables"
   echo
 else
   # source the environment script
