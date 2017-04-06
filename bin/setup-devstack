@@ -13,6 +13,7 @@ STACK_DIR="${GIT_DIR}/devstack"
 ADMIN_PASSWORD="secret"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" && pwd )"
+OPENSTACK_RELEASE=${OPENSTACK_RELEASE:-master}
 
 
 CINDER_REPO="${CINDER_REPO:-http://git.openstack.org/openstack/cinder}"
@@ -95,7 +96,7 @@ fi
 echo "Checking to see if the devstack repo exists"
 if [ ! -d "${STACK_DIR}" ]; then
   echo "Cloning the devstack repo"
-  git -c http.sslVerify=false clone http://git.openstack.org/openstack-dev/devstack "${STACK_DIR}"
+  git -c http.sslVerify=false clone http://git.openstack.org/openstack-dev/devstack -b "${OPENSTACK_RELEASE}" "${STACK_DIR}"
 fi
 
 # create the local configuration files
