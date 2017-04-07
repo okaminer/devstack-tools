@@ -1,0 +1,58 @@
+#!/bin/bash
+
+REPO="https://github.com/eric-young/nova.git"
+WORKDIR="/tmp/nova-temp"
+# sourcetag represents the version of the code we WANT to patch
+SOURCETAG="15.0.2"
+SOURCEBRANCH="sio/ephemeral-${SOURCETAG}"
+# pathtag is the version of the diff file to patch the soure with
+PATCHTAG="15.0.2"
+
+if [ -d "${WORKDIR}" ]; then
+   rm -rf "${WORKDIR}"
+fi
+
+# clone the nova repo
+git clone "${REPO}" "${WORKDIR}"
+
+# checkout the 'source' tag
+cd "${WORKDIR}"
+git config user.email "eric.young@emc.com"
+git fetch --all --tags --prune
+git checkout tags/${SOURCETAG} -b ${SOURCEBRANCH}
+
+# get the patch for the source version
+#wget https://raw.githubusercontent.com/codedellemc/nova-scaleio-ephemeral/master/${PATCHTAG}.diff
+cp /tmp/${PATCHTAG}.diff .
+
+# apply the patch to the source
+patch -p1 -i /tmp/${PATCHTAG}.diff
+if [ -f ${PATCHTAG}.diff ]; then
+  rm ${PATCHTAG}.diff
+fi
+# remove the orig files created by diff
+NUM_ORIG=`find . -name \*.orig | wc -l`
+# remove the rej files created by diff
+NUM_REJ=`find . -name \*.rej | wc -l`
+
+if [ $NUM_ORIG != "0" -o $NUM_REJ != "0" ]; then
+  echo "At least one file did not patch perfectly"
+  echo "please look for files with a orig or rej extension"
+  echo "before proceeding"
+  exit 1
+fi
+
+echo "The source seems to have patched successfully and the results are"
+echo "in ${WORKDIR}."
+
+exit 0
+
+# code below here will commit the changes and push them back to the repo
+# as a NEW branch
+
+# commit the changes
+git add --all
+
+# now the patch file can be created with "git diff --staged > filename.diff"
+git commit -a -m "modified files after patching version ${SOURCETAG}"
+git push origin "${SOURCEBRANCH}"
