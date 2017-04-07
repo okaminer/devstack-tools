@@ -13,6 +13,8 @@ STACK_DIR="${GIT_DIR}/devstack"
 ADMIN_PASSWORD="secret"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" && pwd )"
+SDCGUID=""
+
 OPENSTACK_RELEASE=${OPENSTACK_RELEASE:-master}
 # the cinder repo
 CINDER_REPO=${CINDER_REPO:-http://git.openstack.org/openstack/cinder.git}
@@ -52,6 +54,7 @@ function transformFile {
     -e "s|%CINDER_BRANCH%|${CINDER_BRANCH}|g" \
     -e "s|%NOVA_REPO%|${NOVA_REPO}|g" \
     -e "s|%NOVA_BRANCH%|${NOVA_BRANCH}|g" \
+    -e "s|%SDCGUID%|${SDCGUID}|g" \    
     "${SOURCE}" > "${TARGET}"
 }
 
@@ -105,14 +108,6 @@ if [ ! -d "${STACK_DIR}" ]; then
   git -c http.sslVerify=false clone http://git.openstack.org/openstack-dev/devstack -b "${OPENSTACK_RELEASE}" "${STACK_DIR}"
 fi
 
-# create the local configuration files
-for F in "local.conf"; do
-  echo "Checking to see if the file:${F} file exists"
-  if [ ! -f "${STACK_DIR}/${F}" ]; then
-    echo "Creating ${F}"
-    transformFile "${PROJECT_DIR}/files/${F}" "${STACK_DIR}/${F}"
-  fi
-done
 
 # we need to set http.sslVerify to false to pull code from behind the DellEMC firewall
 su - ${STACK_USER} -c "git config --global http.sslVerify false"
@@ -176,5 +171,15 @@ else
   exit 1
 fi
 
+SDCGUID=`/bin/emc/scaleio/drv_cfg --query_guid`
+
+# create the local configuration files
+for F in "local.conf"; do
+  echo "Checking to see if the file:${F} file exists"
+  if [ ! -f "${STACK_DIR}/${F}" ]; then
+    echo "Creating ${F}"
+    transformFile "${PROJECT_DIR}/files/${F}" "${STACK_DIR}/${F}"
+  fi
+done
 
 echo "You should now be able to 'su' to ${STACK_USER} and run ${STACK_DIR}/stack.sh"
