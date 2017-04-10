@@ -1,0 +1,16 @@
+#!/bin/bash
+#
+# tests the ephemeral patch by:
+#  1) Spooling up an instance
+#  more to come :)
+
+
+# get the image list (find the first cirrus image)
+IMAGEDETAILS=`openstack image list -f csv --quote minimal | grep cirros | grep -v kernel | grep -v ramdisk | head -n 1`
+IMAGE=`echo "${IMAGEDETAILS}" | awk -F',' '{print $1}'`
+
+FLAVORDETAILS=`openstack flavor list -f csv --quote minimal | grep m1.tiny`
+FLAVOR=`echo "${FLAVORDETAILS}" | awk -F',' '{print $1}'`
+
+# create the instance, with scaleio as the ephemeral disk
+nova boot --flavor ${FLAVOR} --block-device source=image,id=${IMAGE},dest=volume,size=1,shutdown=remove,bootindex=0 test-nova
