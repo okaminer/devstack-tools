@@ -8,9 +8,9 @@
 # If we get an argument to this script, it will be:
 #    The IP address of the node running the servicesabcf88ery!
 
-SERVICESNODE=""
+SERVICES_HOST=""
 if [ ! -z "${1}" ]; then
-  SERVICESNODE="${1}"
+  SERVICES_HOST="${1}"
 fi
 
 STACK_USER="stack"
@@ -62,6 +62,7 @@ function transformFile {
     -e "s|%NOVA_REPO%|${NOVA_REPO}|g" \
     -e "s|%NOVA_BRANCH%|${NOVA_BRANCH}|g" \
     -e "s|%SDCGUID%|${SDCGUID}|g" \
+    -e "s|%SERVICES_HOST%|${SERVICES_HOST}|g" \
     "${SOURCE}" > "${TARGET}"
 }
 
@@ -181,7 +182,7 @@ fi
 SDCGUID=`/bin/emc/scaleio/drv_cfg --query_guid`
 
 # create the local configuration files
-if [ -z "${SERVICES_NODE}"]; then
+if [ -z "${SERVICES_HOST}"]; then
   F="local.conf"
 else
   F="compute.conf"
