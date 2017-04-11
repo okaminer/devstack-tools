@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# takes three arguments
+#  1: instance name
+#  2: volume1, will attach to instance
+#  3: volume2, will swap for volume1
+
+function volume_wait_for_status() {
+  V="${1}"
+  S="${2}"
+  F=""
+  start=`date +%s`
+   
+  while [ "${F}" != "done" ]; do 
+    STATUS=`openstack volume list -f csv --quote minimal | grep "${V}" | awk -F',' '{print $3}'`
+    if [ "${STATUS}" == "${S}" ]; then
+      F="done" 
+      sleep 1
+    fi
+  done
+
+  end=`date +%s`
+  elapsed=$((end-start))
+  echo "Waiting for $V to become $S took $elapsed seconds"
+  
+}
+
+
+INSTANCE="${1}"
+VOLUME1="${2}"
+VOLUME2="${3}"
+
+nova volume-attach ${INSTANCE} ${VOLUME1}
+volume_wait_for_status "${VOLUME1}"  "in-use"
+
+nova volume-update ${INSTANCE} ${VOLUME1} ${VOLUME2}
+volume_wait_for_status ${VOLUME2} "in-use"
+volume_wait_for_status ${VOLUME1} "available"
+
+nova volume-detach ${INSTANCE} ${VOLUME2}
+volume_wait_for_status ${VOLUME2} "available"
