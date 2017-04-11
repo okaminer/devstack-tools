@@ -69,6 +69,7 @@ function transformFile {
     -e "s|%NOVA_BRANCH%|${NOVA_BRANCH}|g" \
     -e "s|%SDCGUID%|${SDCGUID}|g" \
     -e "s|%SERVICES_HOST%|${SERVICES_HOST}|g" \
+    -e "s|%HOST_IP%|${HOST_IP}|g" \
     "${SOURCE}" > "${TARGET}"
 }
 
