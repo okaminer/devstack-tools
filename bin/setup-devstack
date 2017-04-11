@@ -5,12 +5,18 @@
 # Ubuntu 16.04      Tested and working
 # CentOS 7          Experimental support
 #
-# If we get an argument to this script, it will be:
-#    The IP address of the node running the servicesabcf88ery!
+# We need arguments to this script, it will be:
+#    1) the public address of this node
+#    2) The IP address of the node running the services
+
+HOST_IP=""
+if [ ! -z "${1}" ]; then
+  HOST_IP="${1}"
+fi
 
 SERVICES_HOST=""
-if [ ! -z "${1}" ]; then
-  SERVICES_HOST="${1}"
+if [ ! -z "${2}" ]; then
+  SERVICES_HOST="${2}"
 fi
 
 STACK_USER="stack"
