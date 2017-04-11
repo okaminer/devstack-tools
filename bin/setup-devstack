@@ -188,10 +188,10 @@ else
   F="compute.conf"
 fi
 
-echo "Checking to see if the file:${F} file exists"
-if [ ! -f "${STACK_DIR}/${F}" ]; then
-  echo "Creating ${F}"
-  transformFile "${PROJECT_DIR}/files/${OPENSTACK_RELEASE}/${F}" "${STACK_DIR}/${F}"
+echo "Checking to see if the local.conf file exists"
+if [ ! -f "${STACK_DIR}/local.conf" ]; then
+  echo "Creating local.conf"
+  transformFile "${PROJECT_DIR}/files/${OPENSTACK_RELEASE}/${F}" "${STACK_DIR}/local.conf"
 fi
 
 echo "You should now be able to 'su' to ${STACK_USER} and run ${STACK_DIR}/stack.sh"
