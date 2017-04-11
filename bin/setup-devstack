@@ -5,6 +5,13 @@
 # Ubuntu 16.04      Tested and working
 # CentOS 7          Experimental support
 #
+# If we get an argument to this script, it will be:
+#    The IP address of the node running the servicesabcf88ery!
+
+SERVICESNODE=""
+if [ ! -z "${1}" ]; then
+  SERVICESNODE="${1}"
+fi
 
 STACK_USER="stack"
 STACK_PASS="stack"
@@ -174,12 +181,16 @@ fi
 SDCGUID=`/bin/emc/scaleio/drv_cfg --query_guid`
 
 # create the local configuration files
-for F in "local.conf"; do
-  echo "Checking to see if the file:${F} file exists"
-  if [ ! -f "${STACK_DIR}/${F}" ]; then
-    echo "Creating ${F}"
-    transformFile "${PROJECT_DIR}/files/${F}" "${STACK_DIR}/${F}"
-  fi
-done
+if [ -z "${SERVICES_NODE}"]; then
+  F="local.conf"
+else
+  F="compute.conf"
+fi
+
+echo "Checking to see if the file:${F} file exists"
+if [ ! -f "${STACK_DIR}/${F}" ]; then
+  echo "Creating ${F}"
+  transformFile "${PROJECT_DIR}/files/${OPENSTACK_RELEASE}/${F}" "${STACK_DIR}/${F}"
+fi
 
 echo "You should now be able to 'su' to ${STACK_USER} and run ${STACK_DIR}/stack.sh"
