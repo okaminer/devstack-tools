@@ -5,29 +5,15 @@
 #   CINDER_BRANCH (branch of cinder to pull)
 
 # set the directory where the code is
-DIRECTORY="/git/cinder"
-if [ -d "/opt/stack/cinder" ]; then
-  DIRECTORY="/opt/stack/cinder"
-fi
+DIRECTORY="/opt/stack/tempest"
 
 if [ ! -d "${DIRECTORY}" ]; then
-   if [ -z "${CINDER_REPO}" -o -z "${CINDER_BRANCH}" ]; then
-      echo "Either CINDER_REPO or CINDER_BRANCH is not set in the environment"
-      echo "And the code has not already been pulled"
-      exit
-   fi
-fi
-
-# pull the repo, if we haven't already
-if [ ! -d "${DIRECTORY}" ]; then
-   git clone "${CINDER_REPO}" -b "${CINDER_BRANCH}" "${DIRECTORY}"
+   echo "The tempest directory does not seem to exist!"
+   exit 1
 fi
 
 # cd to the directory
 cd "${DIRECTORY}"
 
-# set the UPPER_CONSTRAINTS_FILE to point to an http (instead of https) URL
-export UPPER_CONSTRAINTS_FILE=http://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt
-
-# run tox
-tox "$@" | tee /git/tox-output.txt
+# run tempest
+tox -eall -- '^(?=.*volume)(?!.*extend)(?!.*test_stamp_pattern).*' --concurrency=1

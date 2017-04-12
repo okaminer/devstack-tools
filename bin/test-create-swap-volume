@@ -1,0 +1,66 @@
+#!/bin/bash
+
+# takes one arguments
+#  1: instance name
+
+function volume_wait_for_status() {
+  V="${1}"
+  S="${2}"
+  F=""
+  start=`date +%s`
+   
+  while [ "${F}" != "done" ]; do 
+    STATUS=`openstack volume list -f csv --quote minimal | grep "${V}" | awk -F',' '{print $3}'`
+    if [ "${STATUS}" == "${S}" ]; then
+      F="done" 
+      sleep 1
+    fi
+  done
+
+  end=`date +%s`
+  elapsed=$((end-start))
+  echo "Waiting for $V to become $S took $elapsed seconds"
+  
+}
+
+
+INSTANCE="${1}"
+
+VOLPREFIX=`date '+%Y%m%d-%H%M%S'`
+V1="VOLUME-${VOLPREFIX}-1"
+V2="VOLUME-${VOLPREFIX}-2"
+
+echo "--> creating ${V1}"
+openstack volume create "${V1}" --size 1
+VOLUME1=`openstack volume list -f csv --quote minimal | grep "${V1}" | awk -F',' '{print $1}'`
+volume_wait_for_status "${VOLUME1}"  "available"
+
+echo "--> creating ${V2}"
+openstack volume create "${V2}" --size 1
+VOLUME2=`openstack volume list -f csv --quote minimal | grep "${V2}" | awk -F',' '{print $1}'`
+volume_wait_for_status "${VOLUME2}"  "available"
+
+echo "--> attaching ${VOLUME1}"
+nova volume-attach ${INSTANCE} ${VOLUME1}
+volume_wait_for_status "${VOLUME1}"  "in-use"
+
+echo "--> swapping ${VOLUME1} for ${VOLUME2}"
+nova volume-update ${INSTANCE} ${VOLUME1} ${VOLUME2}
+volume_wait_for_status ${VOLUME2} "in-use"
+volume_wait_for_status ${VOLUME1} "available"
+
+echo "--> swapping ${VOLUME2} for ${VOLUME1}"
+nova volume-update ${INSTANCE} ${VOLUME2} ${VOLUME1}
+volume_wait_for_status ${VOLUME1} "in-use"
+volume_wait_for_status ${VOLUME2} "available"
+
+echo "--> detaching ${VOLUME1}"
+nova volume-detach ${INSTANCE} ${VOLUME1}
+volume_wait_for_status ${VOLUME1} "available"
+
+echo "--> deleting ${V1}"
+openstack volume delete "${VOLUME1}"
+
+echo "--> deleting ${V2}"
+openstack volume delete "${VOLUME2}"
+
