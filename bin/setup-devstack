@@ -113,19 +113,19 @@ echo "Checking to see if the directory:${GIT_DIR} exists"
 if [ ! -d "${GIT_DIR}" ]; then
    echo "Creating the base git directory"
    mkdir -p "${GIT_DIR}"
-   chown -R ${STACK_USER} "${GIT_DIR}"
 fi
+
+chown -R ${STACK_USER} "${GIT_DIR}"
+
+# we need to set http.sslVerify to false to pull code from behind the DellEMC firewall
+su - ${STACK_USER} -c "git config --global http.sslVerify false"
 
 # clone the repo
 echo "Checking to see if the devstack repo exists"
 if [ ! -d "${STACK_DIR}" ]; then
   echo "Cloning the devstack repo"
-  git -c http.sslVerify=false clone http://git.openstack.org/openstack-dev/devstack -b "${OPENSTACK_RELEASE}" "${STACK_DIR}"
+  sudo -H -u "${STACK_USER}" git -c http.sslVerify=false clone http://git.openstack.org/openstack-dev/devstack -b "${OPENSTACK_RELEASE}" "${STACK_DIR}"
 fi
-
-
-# we need to set http.sslVerify to false to pull code from behind the DellEMC firewall
-su - ${STACK_USER} -c "git config --global http.sslVerify false"
 
 # make sure it's all owned by the right user
 chown -R ${STACK_USER} "${STACK_DIR}"
