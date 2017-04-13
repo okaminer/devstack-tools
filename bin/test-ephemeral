@@ -16,16 +16,11 @@ TESTFLAVOR="ephemeral.tiny"
 IMAGEDETAILS=`openstack image list -f csv --quote minimal | grep cirros | grep -v kernel | grep -v ramdisk | head -n 1`
 IMAGE=`echo "${IMAGEDETAILS}" | awk -F',' '{print $1}'`
 
-FLAVORDETAILS=`openstack flavor list -f csv --quote minimal | grep m1.tiny`
-FLAVOR=`echo "${FLAVORDETAILS}" | awk -F',' '{print $1}'`
+# create a new flavor, with an ephemeral disk
+openstack flavor create ${TESTFLAVOR} --id auto --ram 512 --disk 8 --ephemeral 16 --vcpus 1
 
 # create the instance, with scaleio as the ephemeral disk
-nova boot --flavor ${FLAVOR} --block-device source=image,id=${IMAGE},dest=volume,size=1,shutdown=remove,bootindex=0 test-nova
+nova boot --image ${IMAGE} --flavor ${TESTFLAVOR} test-ephemeral
 
-# create a new flavor, with the same cpu and memory as m1.tiny, but larger disk
-opestack flavor create ${TESTFLAVOR} --id auto --ram 512 --disk 40 --vcpus 1
-# now get the id and resize the instance
-FLAVORDETAILS=`openstack flavor list -f csv --quote minimal | grep ${TESTFLAVOR}`
-NEWFLAVOR=`echo "${FLAVORDETAILS}" | awk -F',' '{print $1}'`
-
-openstack server resize --flavor ${NEWFLAVOR} test-nova
+# resize the instance
+# openstack server resize --flavor ${NEWFLAVOR} test-nova
