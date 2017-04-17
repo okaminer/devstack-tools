@@ -1,0 +1,18 @@
+#!/bin/bash
+#
+# This script simply runs tempest
+
+# set the directory where the code is
+DIRECTORY="/opt/stack/tempest"
+
+# ensure the directory exists
+if [ ! -d "${DIRECTORY}" ]; then
+   echo "The tempest directory does not seem to exist!"
+   exit 1
+fi
+
+# cd to the directory
+cd "${DIRECTORY}"
+
+# run tempest
+tox -eall -- '^tempest.api.compute.(admin.test_live_migration|admin.test_migrations|admin.test_servers.|admin.test_servers_negative|images.test_images.ImagesTestJSON.test_create_image_from_stopped_server|servers)' --concurrency=1
