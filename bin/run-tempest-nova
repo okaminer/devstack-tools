@@ -15,4 +15,4 @@ fi
 cd "${DIRECTORY}"
 
 # run tempest
-tox -eall -- '^tempest.api.compute.(admin.test_live_migration|admin.test_migrations|admin.test_servers.|admin.test_servers_negative|images.test_images.ImagesTestJSON.test_create_image_from_stopped_server|servers)' --concurrency=1
+tox -eall -- '^tempest.api.compute.(admin.test_live_migration|admin.test_migrations|admin.test_servers.|admin.test_servers_negative|images.test_images.ImagesTestJSON.test_create_image_from_stopped_server|servers)(?!.*with_scheduler_hint_group)' --concurrency=1
