@@ -4,6 +4,8 @@
 
 # set the directory where the code is
 DIRECTORY="/opt/stack/tempest"
+ME=`basename "${0}"`
+LOGFILE="/tmp/${ME}.log"
 
 # ensure the directory exists
 if [ ! -d "${DIRECTORY}" ]; then
@@ -15,4 +17,5 @@ fi
 cd "${DIRECTORY}"
 
 # run tempest
-tox -eall -- '^(?=.*volume)(?!.*extend)(?!.*test_stamp_pattern)(?!.*test_volume_upload).*' --concurrency=1
+tox -eall -- '^(?=.*volume)(?!.*extend)(?!.*test_stamp_pattern)(?!.*test_volume_upload).*' --concurrency=1 | tee "${LOGFILE}"
+echo "output was sent to ${LOGFILE}"
