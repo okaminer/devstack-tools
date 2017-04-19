@@ -113,13 +113,13 @@ echo "Setting up the ssh keys for root"
 if [ ! -d /root/.ssh ]; then
    mkdir -p /root/.ssh
 fi
-cp "${PROJECT_DIR}/ssh/root/*" /root/.ssh
+cp "${PROJECT_DIR}"/ssh/root/* /root/.ssh
 chmod -R 700 /root/.ssh
 echo "setting up ssh for the ${STACK_USER} user"
 if [ ! -d "/home/${STACK_USER}/.ssh" ]; then
    mkdir -p "/home/${STACK_USER}/.ssh"
 fi
-cp "${PROJECT_DIR}/ssh/stack/*" "/home/${STACK_USER}/.ssh"
+cp "${PROJECT_DIR}"/ssh/stack/* "/home/${STACK_USER}/.ssh"
 chown -R "${STACK_USER}:${STACK_USER}" "/home/${STACK_USER}/.ssh"
 chmod -R 700 "/home/${STACK_USER}/.ssh"
 
