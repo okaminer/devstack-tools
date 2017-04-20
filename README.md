@@ -12,4 +12,4 @@ Small little scripts to test a specific thing in devstack
 
 ## setup-devstack
 
-This is the main script to setup devstack, while it can be called manually the usage instructions are lacking at this stack. It's original intent was to be invoked as part of the https://github.com/eric-young/deploy-and-configure container (which is responsible for argument parsing and invoked setup-devstack correctly).
+This is the main script to setup devstack, while it can be called manually the usage instructions are lacking at this stage. The original intent was to be invoked as part of the https://github.com/eric-young/deploy-and-configure container (which is responsible for argument parsing and invoked setup-devstack correctly).
