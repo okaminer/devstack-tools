@@ -231,6 +231,8 @@ if [ "${EPHEMERAL}" == "True" ]; then
   pip install python-scaleioclient/
 
   sed -i -e "s|## images_type=sio|images_type=sio|g" /git/devstack/local.conf
+  sed -i -e "s|## flavor_ref = .*|flavor_ref = 100|g" /git/devstack/local.conf
+  sed -i -e "s|## flavor_ref_alt = .*|flavor_ref_alt = 101|g" /git/devstack/local.conf
 
 fi
 
