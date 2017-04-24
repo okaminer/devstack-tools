@@ -235,7 +235,7 @@ if [ "${EPHEMERAL}" == "True" ]; then
   sed -i -e "s|## flavor_ref_alt = .*|flavor_ref_alt = 101|g" /git/devstack/local.conf
 
   # the image/ephemeral patach also requires a rootwrap filter
-  cp "${PROJECT_DIR}"/files/rootwrap.d/nova/*.filters /etc/nova/rootwrap.d/
+  cat "${PROJECT_DIR}"/files/rootwrap.d/nova/scaleio.filters >> /etc/nova/rootwrap.d/compute.filters
   chmod 644 /etc/nova/rootwrap.d/*.filters
 
 fi

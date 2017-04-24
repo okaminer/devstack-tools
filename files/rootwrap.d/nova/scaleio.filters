@@ -1,5 +1,3 @@
-# nova-rootwrap command filters for scaleio purposes
-# This file should be owned by (and only-writeable by) the root user
 
-[Filters]
+# nova/virt/libvirt/storage/sio_utils.py: 'partprobe' device_path
 partprobe: CommandFilter, partprobe, root
