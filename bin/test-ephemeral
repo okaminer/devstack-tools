@@ -10,6 +10,19 @@
 # live migration, snapshotting, rescuing, ephemeral and swap devices,
 # flavor attributes (including changing of them when resize
 
+
+# stop n-cpu if it's running
+# install siolib (https://github.com/codedellemc/python-scaleioclient.git)
+# checkout out the target branch of Nova
+# patch the nova directory
+# restart n-cpu if it was running
+cd /git && git clone https://github.com/codedellemc/python-scaleioclient -b newton
+cd python-scaleioclient && sudo python setup.py install
+
+sed -i -e "s|## images_type=sio|images_type=sio|g" /git/devstack/local.conf
+
+exit
+
 TESTFLAVOR="ephemeral.tiny"
 
 # get the image list (find the first cirrus image)
