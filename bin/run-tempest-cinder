@@ -13,6 +13,13 @@ if [ ! -d "${DIRECTORY}" ]; then
    exit 1
 fi
 
+# we need to make sure that some environemet variables are set so that
+# we can create the necessary flavors used in testing (username, auth_url)
+if [ -z "${OS_USERNAME}" -o -z "${OS_AUTH_URL}" ]; then
+  echo "Source the openrc file in the devstack directory before running this script"
+  exit 1
+fi
+
 # cd to the directory
 cd "${DIRECTORY}"
 

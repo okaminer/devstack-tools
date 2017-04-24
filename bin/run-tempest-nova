@@ -13,8 +13,20 @@ if [ ! -d "${DIRECTORY}" ]; then
    exit 1
 fi
 
+# we need to make sure that some environemet variables are set so that
+# we can create the necessary flavors used in testing (username, auth_url)
+if [ -z "${OS_USERNAME}" -o -z "${OS_AUTH_URL}" ]; then
+  echo "Source the openrc file in the devstack directory before running this script"
+  exit 1
+fi
+
 # cd to the directory
 cd "${DIRECTORY}"
+
+# make the necessary flavors
+# scaleio image backend only supports disks in multiples of 8GB
+openstack flavor create TEMPEST_REF --id 100 --ram 512 --disk 8 --ephemeral 8 --vcpus 1
+openstack flavor create TEMPEST_REF_ALT --id 101 --ram 512 --disk 16 --ephemeral 16 --vcpus 1
 
 # run tempest
 tox -eall -- '^tempest.api.compute.(admin.test_live_migration|admin.test_migrations|admin.test_servers.|admin.test_servers_negative|images.test_images.ImagesTestJSON.test_create_image_from_stopped_server|servers)(?!.*with_scheduler_hint_group)' --concurrency=1  | tee "${LOGFILE}"
