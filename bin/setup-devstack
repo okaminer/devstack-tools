@@ -228,7 +228,7 @@ if [ "${EPHEMERAL}" == "True" ]; then
   rm -rf nova-temp
 
   cd /git && git clone https://github.com/codedellemc/python-scaleioclient -b newton
-  pip install python-scaleioclient
+  pip install python-scaleioclient/
 
   sed -i -e "s|## images_type=sio|images_type=sio|g" /git/devstack/local.conf
 
