@@ -217,4 +217,6 @@ if [ ! -f "${STACK_DIR}/local.conf" ]; then
   transformFile "${PROJECT_DIR}/files/${OPENSTACK_RELEASE}/${F}" "${STACK_DIR}/local.conf"
 fi
 
+chown -R ${STACK_USER} "${GIT_DIR}"
+
 echo "You should now be able to 'su' to ${STACK_USER} and run ${STACK_DIR}/stack.sh"
