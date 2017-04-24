@@ -234,6 +234,10 @@ if [ "${EPHEMERAL}" == "True" ]; then
   sed -i -e "s|## flavor_ref = .*|flavor_ref = 100|g" /git/devstack/local.conf
   sed -i -e "s|## flavor_ref_alt = .*|flavor_ref_alt = 101|g" /git/devstack/local.conf
 
+  # the image/ephemeral patach also requires a rootwrap filter
+  cp "${PROJECT_DIR}"/files/rootwrap.d/nova/*.filters /etc/nova/rootwrap.d/
+  chmod 644 /etc/nova/rootwrap.d/*.filters
+
 fi
 
 echo "You should now be able to 'su' to ${STACK_USER} and run ${STACK_DIR}/stack.sh"
