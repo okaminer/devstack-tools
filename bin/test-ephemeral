@@ -16,6 +16,7 @@
 # checkout out the target branch of Nova
 # patch the nova directory
 # restart n-cpu if it was running
+
 cd /git && git clone https://github.com/codedellemc/python-scaleioclient -b newton
 cd python-scaleioclient && sudo python setup.py install
 
