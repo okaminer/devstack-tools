@@ -6,6 +6,7 @@
 DIRECTORY="/opt/stack/tempest"
 ME=`basename "${0}"`
 LOGFILE="/tmp/${ME}.log"
+TEST='^(?=.*volume)(?!.*extend)(?!.*test_stamp_pattern)(?!.*test_volume_upload).*'
 
 # ensure the directory exists
 if [ ! -d "${DIRECTORY}" ]; then
@@ -29,5 +30,5 @@ openstack flavor create TEMPEST_REF --id 100 --ram 512 --disk 8 --vcpus 1
 openstack flavor create TEMPEST_REF_ALT --id 101 --ram 512 --disk 16 --vcpus 1
 
 # run tempest
-tox -eall -- '^(?=.*volume)(?!.*extend)(?!.*test_stamp_pattern)(?!.*test_volume_upload).*' --concurrency=1 | tee "${LOGFILE}"
+tox -eall -- "${TEST}" --concurrency=1 | tee "${LOGFILE}"
 echo "output was sent to ${LOGFILE}"

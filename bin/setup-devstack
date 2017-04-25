@@ -230,13 +230,10 @@ if [ "${EPHEMERAL}" == "True" ]; then
   cd /git && git clone https://github.com/codedellemc/python-scaleioclient -b newton
   pip install python-scaleioclient/
 
+  # change the local.conf file to support the ephemeral patch
   sed -i -e "s|## images_type=sio|images_type=sio|g" /git/devstack/local.conf
   sed -i -e "s|## flavor_ref = .*|flavor_ref = 100|g" /git/devstack/local.conf
   sed -i -e "s|## flavor_ref_alt = .*|flavor_ref_alt = 101|g" /git/devstack/local.conf
-
-  # the image/ephemeral patch also requires a rootwrap filter
-  #cat "${PROJECT_DIR}"/files/rootwrap.d/nova/scaleio.filters >> /etc/nova/rootwrap.d/compute.filters
-  #chmod 644 /etc/nova/rootwrap.d/*.filters
 
 fi
 
