@@ -28,11 +28,15 @@ cd "${DIRECTORY}"
 openstack flavor create TEMPEST_REF --id 100 --ram 512 --disk 8 --ephemeral 8 --vcpus 1
 openstack flavor create TEMPEST_REF_ALT --id 101 --ram 512 --disk 16 --ephemeral 16 --vcpus 1
 
-TEST="tempest.api.compute.volumes.test_attach_volume.AttachVolumeShelveTestJSON"
-TEST="tempest.api.compute.volumes.test_attach_volume.AttachVolumeShelveTestJSON.test_attach_volume_shelved_or_offload_server"
+TEST="^tempest.api.compute.volumes.test_attach_volume.AttachVolumeShelveTestJSON.test_attach_volume_shelved_or_offload_server"
 
 # run tempest
-tox -eall -- "^$TEST" --concurrency=1 | tee "${LOGFILE}"
+tox -eall -- "$TEST" --concurrency=1 | tee "${LOGFILE}"
 
-# tox -eall -- '^tempest.api.compute.(admin.test_live_migration|admin.test_migrations|admin.test_servers.|admin.test_servers_negative|images.test_images.ImagesTestJSON.test_create_image_from_stopped_server|servers)(?!.*with_scheduler_hint_group)' --concurrency=1  | tee "${LOGFILE}"
+exit
+
+TEST="^tempest.api.compute.(admin.test_live_migration|admin.test_migrations|admin.test_servers.|admin.test_servers_negative|images.test_images.ImagesTestJSON.test_create_image_from_stopped_server|servers)(?!.*with_scheduler_hint_group)"
+
+tox -eall -- "$TEST" --concurrency=1 | tee "${LOGFILE}"
+
 echo "output was sent to ${LOGFILE}"
