@@ -31,4 +31,5 @@ openstack flavor create TEMPEST_REF_ALT --id 101 --ram 512 --disk 16 --vcpus 1
 
 # run tempest
 tox -eall -- "${TEST}" --concurrency=1 | tee "${LOGFILE}"
+
 echo "output was sent to ${LOGFILE}"
