@@ -30,7 +30,7 @@ index 971f7e9..d694ef7 100644
 +        """Create a new SIO image object"""
 +        super(SIOImage, self).__init__(FORMAT_RAW)
 diff --git a/nova/virt/libvirt/driver.py b/nova/virt/libvirt/driver.py
-index db2f6ba..32d56c3 100644
+index db2f6ba..5e1470c 100644
 --- a/nova/virt/libvirt/driver.py
 +++ b/nova/virt/libvirt/driver.py
 @@ -104,6 +104,7 @@ from nova.virt.libvirt import migration as libvirt_migrate
@@ -220,7 +220,22 @@ index db2f6ba..32d56c3 100644
              # get the real disk size or
              # raise a localized error if image is unavailable
              if disk_type == 'file':
-@@ -7338,6 +7392,7 @@ class LibvirtDriver(driver.ComputeDriver):
+@@ -7215,8 +7269,12 @@ class LibvirtDriver(driver.ComputeDriver):
+         # Checks if the migration needs a disk resize down.
+         root_down = flavor.root_gb < instance.flavor.root_gb
+         ephemeral_down = flavor.ephemeral_gb < eph_size
+-        booted_from_volume = self._is_booted_from_volume(block_device_info)
+-
++        block_device_mapping = driver.block_device_info_get_mapping(
++                                                        block_device_info)
++        root_disk = block_device.get_root_bdm(block_device_mapping)
++        booted_from_volume = (
++            self._is_booted_from_volume(block_device_info)
++            and root_disk)
+         if (root_down and not booted_from_volume) or ephemeral_down:
+             reason = _("Unable to resize disk down.")
+             raise exception.InstanceFaultRollback(
+@@ -7338,6 +7396,7 @@ class LibvirtDriver(driver.ComputeDriver):
                           block_device_info=None, power_on=True):
          LOG.debug("Starting finish_migration", instance=instance)
  
@@ -228,7 +243,7 @@ index db2f6ba..32d56c3 100644
          block_disk_info = blockinfo.get_disk_info(CONF.libvirt.virt_type,
                                                    instance,
                                                    image_meta,
-@@ -7456,6 +7511,7 @@ class LibvirtDriver(driver.ComputeDriver):
+@@ -7456,6 +7515,7 @@ class LibvirtDriver(driver.ComputeDriver):
              self._cleanup_failed_migration(inst_base)
              utils.execute('mv', inst_base_resize, inst_base)
  
@@ -236,7 +251,7 @@ index db2f6ba..32d56c3 100644
          root_disk = self.image_backend.by_name(instance, 'disk')
          # Once we rollback, the snapshot is no longer needed, so remove it
          # TODO(nic): Remove the try/except/finally in a future release
-@@ -7466,7 +7522,7 @@ class LibvirtDriver(driver.ComputeDriver):
+@@ -7466,7 +7526,7 @@ class LibvirtDriver(driver.ComputeDriver):
          # anymore, the try/except/finally should be removed,
          # and ignore_errors should be set back to False (the default) so
          # that problems throw errors, like they should.
@@ -433,10 +448,10 @@ index d610505..11981e8 100644
  
 diff --git a/nova/virt/libvirt/storage/sio_utils.py b/nova/virt/libvirt/storage/sio_utils.py
 new file mode 100644
-index 0000000..372be19
+index 0000000..925f0f7
 --- /dev/null
 +++ b/nova/virt/libvirt/storage/sio_utils.py
-@@ -0,0 +1,445 @@
+@@ -0,0 +1,446 @@
 +# Copyright (c) 2015 EMC Corporation
 +# All Rights Reserved
 +#
@@ -447,6 +462,7 @@ index 0000000..372be19
 +# it is provided by or on behalf of EMC.
 +#
 +
++from six.moves import range
 +import time
 +
 +from oslo_concurrency import processutils
@@ -769,7 +785,7 @@ index 0000000..372be19
 +                # filters, which requires changes for install tools (puppets)
 +                # as well. Currently we want to avoid this.
 +                self.ioctx.detach_volume(vol_id)
-+                for _tries in xrange(5):
++                for _tries in range(5):
 +                    vol_path = self.ioctx.get_volumepath(vol_id)
 +                    if not vol_path:
 +                        break
