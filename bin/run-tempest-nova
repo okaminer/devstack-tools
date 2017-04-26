@@ -26,7 +26,7 @@ cd "${DIRECTORY}"
 
 # make the necessary flavors
 # scaleio image backend only supports disks in multiples of 8GB
-openstack flavor create TEMPEST_REF --id 100 --ram 512 --disk 8 -ephemeral 8 --vcpus 1
+openstack flavor create TEMPEST_REF --id 100 --ram 512 --disk 8 --ephemeral 8 --vcpus 1
 openstack flavor create TEMPEST_REF_ALT --id 101 --ram 512 --disk 16 --ephemeral 16 --vcpus 1
 
 # run tempest
