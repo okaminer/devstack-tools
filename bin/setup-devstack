@@ -37,6 +37,10 @@ CINDER_BRANCH=${CINDER_BRANCH:-$OPENSTACK_RELEASE}
 NOVA_REPO=${NOVA_REPO:-http://git.openstack.org/openstack/nova.git}
 # nova branch, if not specified, use the openstack version
 NOVA_BRANCH=${NOVA_BRANCH:-$OPENSTACK_RELEASE}
+# scaleio username, if not specified, the default of 'admin'
+SIO_USERNAME=${SIO_USERNAME:-admin}
+# scaleio password, if not specified, the default of 'Scaleio123'
+SIO_PASSWORD=${SIO_PASSWORD:-Scaleio123}
 
 function usage {
   echo
@@ -70,6 +74,8 @@ function transformFile {
     -e "s|%SDCGUID%|${SDCGUID}|g" \
     -e "s|%SERVICES_HOST%|${SERVICES_HOST}|g" \
     -e "s|%HOST_IP%|${HOST_IP}|g" \
+    -e "S|%SIO_USERNAME%|${SIO_USERNAME}|g" \
+    -e "s|%SIO_PASSWORD%|${SIO_PASSWORD}|g" \
     "${SOURCE}" > "${TARGET}"
 }
 
