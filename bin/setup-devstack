@@ -74,7 +74,7 @@ function transformFile {
     -e "s|%SDCGUID%|${SDCGUID}|g" \
     -e "s|%SERVICES_HOST%|${SERVICES_HOST}|g" \
     -e "s|%HOST_IP%|${HOST_IP}|g" \
-    -e "S|%SIO_USERNAME%|${SIO_USERNAME}|g" \
+    -e "s|%SIO_USERNAME%|${SIO_USERNAME}|g" \
     -e "s|%SIO_PASSWORD%|${SIO_PASSWORD}|g" \
     "${SOURCE}" > "${TARGET}"
 }
