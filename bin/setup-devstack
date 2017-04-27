@@ -111,7 +111,7 @@ fi
 
 echo "Running on ${VARIANT}"
 
-if [ "${VARIANT}" != "Ubuntu" -o "${VARIANT}" != "CentOS" ];  then
+if [ "${VARIANT}" != "Ubuntu" -a "${VARIANT}" != "CentOS" ];  then
   echo "Only CentOS and Ubuntu are Supported"
   exit 1
 fi
