@@ -102,7 +102,7 @@ fi
 # check what operating system I am on
 VARIANT=`lsb_release -si`
 UBUNTU_VERSION=""
-if [ $? -ne 0 ]; then
+if [ -z "${VARIANT}" ]; then
   VARIANT="CentOS"
   echo "lsb_release was not found, assuming ${VARIANT}"
 elif [ "${VARIANT}" == "Ubuntu" ]; then
@@ -112,7 +112,7 @@ fi
 echo "Running on ${VARIANT}"
 
 if [ "${VARIANT}" != "Ubuntu" -o "${VARIANT}" != "CentOS" ];  then
-  echo "Only CentOS and Ubuntu Supported"
+  echo "Only CentOS and Ubuntu are Supported"
   exit 1
 fi
 
