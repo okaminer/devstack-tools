@@ -99,6 +99,39 @@ else
 fi
 
 #
+# check what operating system I am on
+VARIANT=`lsb_release -si`
+UBUNTU_VERSION=""
+if [ $? -ne 0 ]; then
+  VARIANT="CentOS"
+  echo "lsb_release was not found, assuming ${VARIANT}"
+elif [ "${VARIANT}" == "Ubuntu" ]; then
+  UBUNTU_VERSION=`lsb_release -rs`
+fi
+
+if [ "${VARIANT}" != "Ubuntu" -a "${VARIANT}" != "${CentOS}" ];  then
+  echo "Only CentOS and Ubuntu Supported"
+  exit 1
+fi
+
+echo "Installing dependencies"
+if [ "${VARIANT}" == "Ubuntu" ]; then
+  apt-get update
+  apt-get install -y \
+     build-essential \
+     libpq-dev \
+     openssh-server \
+     python-pip \
+     python-gdbm \
+     python2.7-dev \
+     python3-dev \
+     virtualenv
+elif [ "${VARIANT}" == "CentOS" ]; then
+  yum install -y \
+     yum-utils
+fi
+
+#
 # Setup the stack user, needs to be done as root
 #
 echo "Checking to see if user:${STACK_USER} exists"
@@ -152,40 +185,14 @@ chown -R ${STACK_USER} "${STACK_DIR}"
 
 #
 # Now setup the ScaleIO SDC
-#
-# check what operating system I am on
-VARIANT=`lsb_release -si`
-UBUNTU_VERSION=""
-if [ $? -ne 0 ]; then
-  VARIANT="CentOS"
-  echo "lsb_release was not found, assuming ${VARIANT}"
-fi
-
-if [ "${VARIANT}" == "Ubuntu" ]; then
-  echo "Installing dependencies"
-  apt-get install -y \
-     build-essential \
-     libpq-dev \
-     openssh-server \
-     python2.7-dev \
-     python3-dev \
-     virtualenv
-elif [ "${VARIANT}" == "CentOS" ]; then
-  echo "Running on CentOS, unsupported"
-  exit 1
-else
-  echo "Unknown linux variant: ${VARIANT}, unsupported"
-  exit 1
-fi
-
 export MDM_IP="${CINDER_SIO_MDM_IPS}"
 
+echo "Installing ScaleIO client (SDC)"
 if [ "${VARIANT}" == "Ubuntu" ]; then
-  UBUNTU_VERSION=`lsb_release -rs`
   echo "Installing ScaleIO SDC.. for Ubuntu ${UBUNTU_VERSION}"
   # install the dependencies
   echo "Installing dependencies"
-  apt-get install libaio1
+  apt-get install -y libaio1
   echo "installing SDC"
   cd "${PROJECT_DIR}/scaleio"
   tar -xvf  EMC-ScaleIO-sdc-2.0-12000.122.Ubuntu.${UBUNTU_VERSION}.x86_64.tar
@@ -200,12 +207,9 @@ elif [ "${VARIANT}" == "CentOS" ]; then
   echo "Installing ScaleIO SDC..."
   # install the dependencies
   echo "Installing dependencies"
-  yum -y install libaio
+  yum install -y libaio
   echo "installing SDC"
   rpm -U "${PROJECT_DIR}/scaleio/EMC*.rpm"
-else
-  echo "Unknown linux variant"
-  exit 1
 fi
 
 SDCGUID=`/bin/emc/scaleio/drv_cfg --query_guid`
