@@ -127,7 +127,10 @@ if [ "${VARIANT}" == "Ubuntu" ]; then
      python3-dev \
      virtualenv
 elif [ "${VARIANT}" == "CentOS" ]; then
+  # add the repo that contains python3.5 (needed for tox tests)
+  yum install -y https://centos7.iuscommunity.org/ius-release.rpm
   yum install -y \
+     python35u-devel \
      yum-utils
 fi
 
