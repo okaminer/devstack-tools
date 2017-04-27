@@ -109,10 +109,12 @@ elif [ "${VARIANT}" == "Ubuntu" ]; then
   UBUNTU_VERSION=`lsb_release -rs`
 fi
 
-if [ "${VARIANT}" != "Ubuntu" -a "${VARIANT}" != "${CentOS}" ];  then
+if [ "${VARIANT}" != "Ubuntu" -a "${VARIANT}" != "CentOS" ];  then
   echo "Only CentOS and Ubuntu Supported"
   exit 1
 fi
+
+echo "Running on ${VARIANT}"
 
 echo "Installing dependencies"
 if [ "${VARIANT}" == "Ubuntu" ]; then
