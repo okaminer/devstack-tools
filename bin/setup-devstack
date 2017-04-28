@@ -235,15 +235,22 @@ fi
 chown -R ${STACK_USER} "${GIT_DIR}"
 
 if [ "${EPHEMERAL}" == "True" ]; then
-  # setup the system for ephemeral device testing
-  git clone "${NOVA_REPO}" -b "${NOVA_BRANCH}" /git/nova-temp
-  cd /git/nova-temp
-  pip install -r requirements.txt
-  cd /git
-  rm -rf nova-temp
 
-  cd /git && git clone https://github.com/codedellemc/python-scaleioclient -b newton
-  pip install python-scaleioclient/
+  if [ "${OPENSTACK_RELEASE}" == "master" -o "${OPENSTACK_RELEASE}" == "stable/pike" ]; then
+    # install siolib from pypi
+    pip install siolib
+  else
+    # install siolib from github
+    # little trick here, install all the nova pip dependencies first
+    git clone "${NOVA_REPO}" -b "${NOVA_BRANCH}" /git/nova-temp
+    cd /git/nova-temp
+    pip install -r requirements.txt
+    cd /git
+    rm -rf nova-temp
+
+    cd /git && git clone https://github.com/codedellemc/python-scaleioclient -b newton
+    pip install python-scaleioclient/
+  fi
 
   # change the local.conf file to support the ephemeral patch
   sed -i -e "s|## images_type=sio|images_type=sio|g" /git/devstack/local.conf
