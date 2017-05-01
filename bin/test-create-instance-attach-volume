@@ -1,7 +1,10 @@
 #!/bin/bash
 
-FLAVOR="flavor"-`basename "${0}"`
-INSTANCE_NAME="instance"-`basename "${0}"`
+
+ME=`basename "${0}"`
+FLAVOR="flavor=${ME}"
+INSTANCE_NAME="instance-${ME}"
+V1="VOLUME-${ME}"
 
 function volume_wait_for_status() {
   V="${1}"
@@ -53,10 +56,6 @@ echo "--> creating instance"
 openstack server create --image "${IMAGE}" --flavor "${FLAVOR}" "${INSTANCE_NAME}"
 INSTANCE=`openstack server list -f csv --quote minimal | grep "${INSTANCE_NAME}" | awk -F',' '{print $1}'`
 instance_wait_for_status "${INSTANCE}"  "ACTIVE"
-
-VOLPREFIX=`date '+%Y%m%d-%H%M%S'`
-V1="VOLUME-${VOLPREFIX}-1"
-V2="VOLUME-${VOLPREFIX}-2"
 
 echo "--> creating ${V1}"
 openstack volume create "${V1}" --size 1
