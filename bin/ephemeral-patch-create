@@ -7,6 +7,34 @@ SOURCETAG="15.0.2"
 SOURCEBRANCH="sio/ephemeral-${SOURCETAG}"
 # pathtag is the version of the diff file to patch the soure with
 PATCHTAG="15.0.2"
+# COMMIT. If set to 'true', a new brnach is created and pushed to REPO
+COMMIT="false"
+
+
+#
+# Main script logic starts here
+#
+while getopts "b:p:c" opt; do
+  case $opt in
+    b)
+      SOURCETAG="${OPTARG}"
+      ;;
+    p)
+      PATCHTAG="${OPTARG}"
+      ;;
+    c)
+      COMMIT="true"
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument." >&2
+      exit 1
+      ;;
+  esac
+done
+
+echo "==============================="
+echo "Attempting to patch nova/${SOURCETAG} with patch ${PATCHTAG}.diff"
+
 
 if [ -d "${WORKDIR}" ]; then
    rm -rf "${WORKDIR}"
@@ -22,8 +50,8 @@ git fetch --all --tags --prune
 git checkout tags/${SOURCETAG} -b ${SOURCEBRANCH}
 
 # get the patch for the source version
-#wget https://raw.githubusercontent.com/codedellemc/nova-scaleio-ephemeral/master/${PATCHTAG}.diff
-cp /tmp/${PATCHTAG}.diff .
+wget https://raw.githubusercontent.com/eric-young/devstack-tools/master/ephemeral-patches/${PATCHTAG}.diff -O /tmp/${PATCHTAG}.diff
+# cp /tmp/${PATCHTAG}.diff .
 
 # apply the patch to the source
 patch -p1 -i /tmp/${PATCHTAG}.diff
@@ -44,15 +72,16 @@ fi
 
 echo "The source seems to have patched successfully and the results are"
 echo "in ${WORKDIR}."
+echo "Patched nova/${SOURCETAG} with patch ${PATCHTAG}.diff"
 
-exit 0
+if [ "${COMMIT}" == "true" ]; then
+  # code below here will commit the changes and push them back to the repo
+  # as a NEW branch
 
-# code below here will commit the changes and push them back to the repo
-# as a NEW branch
+  # commit the changes
+  git add --all
 
-# commit the changes
-git add --all
-
-# now the patch file can be created with "git diff --staged > filename.diff"
-git commit -a -m "modified files after patching version ${SOURCETAG}"
-git push origin "${SOURCEBRANCH}"
+  # now the patch file can be created with "git diff --staged > filename.diff"
+  git commit -a -m "modified files after patching version ${SOURCETAG}"
+  git push origin "${SOURCEBRANCH}"
+fi
