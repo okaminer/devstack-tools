@@ -1,0 +1,81 @@
+#!/bin/bash
+
+FLAVOR="flavor"-`basename "${0}"`
+INSTANCE_NAME="instance"-`basename "${0}"`
+
+function volume_wait_for_status() {
+  V="${1}"
+  S="${2}"
+  F=""
+  start=`date +%s`
+
+  while [ "${F}" != "done" ]; do
+    STATUS=`openstack volume list -f csv --quote minimal | grep "${V}" | awk -F',' '{print $3}'`
+    if [ "${STATUS}" == "${S}" ]; then
+      F="done"
+      sleep 1
+    fi
+  done
+
+  end=`date +%s`
+  elapsed=$((end-start))
+  echo "Waiting for $V to become $S took $elapsed seconds"
+}
+
+
+function instance_wait_for_status() {
+  I="${1}"
+  S="${2}"
+  F=""
+  start=`date +%s`
+
+  while [ "${F}" != "done" ]; do
+    STATUS=`openstack server list -f csv --quote minimal | grep "${I}" | awk -F',' '{print $3}'`
+    if [ "${STATUS}" == "${S}" ]; then
+      F="done"
+      sleep 1
+    fi
+  done
+
+  end=`date +%s`
+  elapsed=$((end-start))
+  echo "Waiting for $I to become $S took $elapsed seconds"
+}
+
+echo "--> creating flavor used in tests"
+openstack flavor create "${FLAVOR}" --id auto --ram 512 --disk 8 --vcpus 1
+
+echo "--> getting the image to use"
+IMAGEDETAILS=`openstack image list -f csv --quote minimal | grep cirros | grep -v kernel | grep -v ramdisk | head -n 1`
+IMAGE=`echo "${IMAGEDETAILS}" | awk -F',' '{print $1}'`
+
+echo "--> creating instance"
+openstack server create --image "${IMAGE}" --flavor "${FLAVOR}" "${INSTANCE_NAME}"
+INSTANCE=`openstack server list -f csv --quote minimal | grep "${INSTANCE_NAME}" | awk -F',' '{print $1}'`
+instance_wait_for_status "${INSTANCE}"  "ACTIVE"
+
+VOLPREFIX=`date '+%Y%m%d-%H%M%S'`
+V1="VOLUME-${VOLPREFIX}-1"
+V2="VOLUME-${VOLPREFIX}-2"
+
+echo "--> creating ${V1}"
+openstack volume create "${V1}" --size 1
+VOLUME1=`openstack volume list -f csv --quote minimal | grep "${V1}" | awk -F',' '{print $1}'`
+volume_wait_for_status "${VOLUME1}"  "available"
+
+echo "--> attaching ${VOLUME1}"
+nova volume-attach ${INSTANCE} ${VOLUME1}
+volume_wait_for_status "${VOLUME1}"  "in-use"
+
+echo "--> detaching ${VOLUME1}"
+nova volume-detach ${INSTANCE} ${VOLUME1}
+volume_wait_for_status ${VOLUME1} "available"
+
+echo "--> deleting ${V1}"
+openstack volume delete "${VOLUME1}"
+
+echo "--> deleting ${INSTANCE_NAME}"
+openstack server delete "${INSTANCE}"
+
+echo "--> deleting ${FLAVOR}"
+openstack flavor delete "${FLAVOR}"
