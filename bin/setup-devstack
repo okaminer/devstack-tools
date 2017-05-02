@@ -133,6 +133,7 @@ elif [ "${VARIANT}" == "CentOS" ]; then
   yum install -y https://centos7.iuscommunity.org/ius-release.rpm
   yum install -y \
      python35u-devel \
+     python-pip \
      yum-utils
 fi
 
