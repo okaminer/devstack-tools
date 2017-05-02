@@ -2,7 +2,7 @@
 
 
 ME=`basename "${0}"`
-FLAVOR="flavor=${ME}"
+FLAVOR="flavor-${ME}"
 INSTANCE_NAME="instance-${ME}"
 V1="VOLUME-${ME}"
 
