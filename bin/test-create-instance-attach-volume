@@ -45,36 +45,52 @@ function instance_wait_for_status() {
   echo "Waiting for $I to become $S took $elapsed seconds"
 }
 
+function wait_a_while() {
+  echo "Waiting for a while ..."
+  for i in {001..015}; do
+    sleep 1
+    printf "\r $i"
+  done
+}
+
 echo "--> creating flavor used in tests"
 openstack flavor create "${FLAVOR}" --id auto --ram 512 --disk 8 --vcpus 1
+wait_a_while
 
 echo "--> getting the image to use"
 IMAGEDETAILS=`openstack image list -f csv --quote minimal | grep cirros | grep -v kernel | grep -v ramdisk | head -n 1`
 IMAGE=`echo "${IMAGEDETAILS}" | awk -F',' '{print $1}'`
+wait_a_while
 
 echo "--> creating instance"
 openstack server create --image "${IMAGE}" --flavor "${FLAVOR}" "${INSTANCE_NAME}"
 INSTANCE=`openstack server list -f csv --quote minimal | grep "${INSTANCE_NAME}" | awk -F',' '{print $1}'`
 instance_wait_for_status "${INSTANCE}"  "ACTIVE"
+wait_a_while
 
 echo "--> creating ${V1}"
 openstack volume create "${V1}" --size 1
 VOLUME1=`openstack volume list -f csv --quote minimal | grep "${V1}" | awk -F',' '{print $1}'`
 volume_wait_for_status "${VOLUME1}"  "available"
+wait_a_while
 
 echo "--> attaching ${VOLUME1}"
 nova volume-attach ${INSTANCE} ${VOLUME1}
 volume_wait_for_status "${VOLUME1}"  "in-use"
+wait_a_while
 
 echo "--> detaching ${VOLUME1}"
 nova volume-detach ${INSTANCE} ${VOLUME1}
 volume_wait_for_status ${VOLUME1} "available"
+wait_a_while
 
 echo "--> deleting ${V1}"
 openstack volume delete "${VOLUME1}"
+wait_a_while
 
 echo "--> deleting ${INSTANCE_NAME}"
 openstack server delete "${INSTANCE}"
+wait_a_while
 
 echo "--> deleting ${FLAVOR}"
 openstack flavor delete "${FLAVOR}"
