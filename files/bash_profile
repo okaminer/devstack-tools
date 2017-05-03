@@ -5,12 +5,14 @@ DEVSTACK_ENV="/git/devstack.environment"
 # if the devstack environent exists...
 if [ -f "${DEVSTACK_ENV}" ]; then
   source "${DEVSTACK_ENV}"
-fi
 
-echo "DevStack:        ${OPENSTACK_RELEASE}"
-echo "Cinder:          ${CINDER_REPO} ${CINDER_BRANCH}"
-echo "Nova:            ${NOVA_REPO} ${NOVA_BRANCH}"
-echo "Ephemeral Setup: ${EPHEMERAL}"
-echo "SIO Gateway:     ${CINDER_SIO_GATEWAY}"
-echo "SIO MDMs:        ${CINDER_SIO_MDMS}"
-echo "SIO PD:SP        ${CINDER_SIO_PD}:${CINDER_SIO_SP}"
+  echo ""
+  echo "DevStack:        ${OPENSTACK_RELEASE}"
+  echo "Cinder:          ${CINDER_REPO} ${CINDER_BRANCH}"
+  echo "Nova:            ${NOVA_REPO} ${NOVA_BRANCH}"
+  echo "Ephemeral Setup: ${EPHEMERAL}"
+  echo "SIO Gateway:     ${CINDER_SIO_GATEWAY}"
+  echo "SIO MDMs:        ${CINDER_SIO_MDMS}"
+  echo "SIO PD:SP        ${CINDER_SIO_PD}:${CINDER_SIO_SP}"
+  echo ""
+fi
