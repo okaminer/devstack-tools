@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# add utilities repo to path, if it exists
+if [ -d "/git/utilities/bin" ]; then
+  export PATH=$PATH:/git/utilities/bin
+fi
+
 DEVSTACK_ENV="/git/devstack.environment"
 
 # if the devstack environent exists...
