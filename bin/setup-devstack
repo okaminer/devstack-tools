@@ -62,6 +62,12 @@ function transformFile {
   SOURCE="${1}"
   TARGET="${2}"
 
+  # calculate the number of computes nodes there should be
+  # this is equal to the number of ip address in the
+  # VM_IP environment variable PLUS one
+  MIN_COMPUTE_NODES=`echo "${VM_IP}" | tr -cd ',' | wc -c`
+  MIN_COMPUTE_NODES=$((MIN_COMPUTE_NODES + 1))
+
   sed \
     -e "s|%ADMIN_PASSWORD%|${ADMIN_PASSWORD}|g" \
     -e "s|%PROTECTIONDOMAIN%|${CINDER_SIO_PD}|g" \
@@ -76,6 +82,7 @@ function transformFile {
     -e "s|%HOST_IP%|${HOST_IP}|g" \
     -e "s|%SIO_USERNAME%|${SIO_USERNAME}|g" \
     -e "s|%SIO_PASSWORD%|${SIO_PASSWORD}|g" \
+    -e "s|%MIN_COMPUTE_NODES%|${MIN_COMPUTE_NODES}|g" \
     "${SOURCE}" > "${TARGET}"
 }
 
