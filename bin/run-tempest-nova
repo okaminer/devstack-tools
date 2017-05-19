@@ -6,7 +6,7 @@
 DIRECTORY="/opt/stack/tempest"
 ME=`basename "${0}"`
 LOGFILE="/tmp/${ME}.log"
-TEST='^tempest.api.compute.(admin.test_live_migration|admin.test_migrations|admin.test_servers.|admin.test_servers_negative|images.test_images.ImagesTestJSON.test_create_image_from_stopped_server|servers)(?!.*with_scheduler_hint_group)'
+TEST='^tempest.api.compute.(admin.test_live_migration|admin.test_migrations|admin.test_servers.|admin.test_servers_negative|images.test_images.ImagesTestJSON.test_create_image_from_stopped_server|servers)(?!.*with_scheduler_hint_group)(?!.*novnc)'
 
 # ensure the directory exists
 if [ ! -d "${DIRECTORY}" ]; then
