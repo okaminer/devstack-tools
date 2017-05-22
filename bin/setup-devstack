@@ -12,6 +12,10 @@
 HOST_IP=""
 if [ ! -z "${1}" ]; then
   HOST_IP="${1}"
+else
+  echo "Error: You must specify the IP address of this node as a parameter"
+  echo "For example: ${0} 1.2.3.4"
+  exit 1
 fi
 
 SERVICES_HOST=""
@@ -232,7 +236,7 @@ fi
 SDCGUID=`/bin/emc/scaleio/drv_cfg --query_guid`
 
 # create the local configuration files
-if [ -z "${SERVICES_HOST}"]; then
+if [ "${SERVICES_HOST}" != "${HOST_IP}" ]; then
   F="local.conf"
 else
   F="compute.conf"
