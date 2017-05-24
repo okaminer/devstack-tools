@@ -236,7 +236,7 @@ fi
 SDCGUID=`/bin/emc/scaleio/drv_cfg --query_guid`
 
 # create the local configuration files
-if [ "${SERVICES_HOST}" != "${HOST_IP}" ]; then
+if [ "${SERVICES_HOST}" == "${HOST_IP}" ]; then
   F="local.conf"
 else
   F="compute.conf"
