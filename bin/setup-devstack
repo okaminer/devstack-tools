@@ -21,6 +21,8 @@ fi
 SERVICES_HOST=""
 if [ ! -z "${2}" ]; then
   SERVICES_HOST="${2}"
+else
+  SERVICES_HOST="${HOST_IP}"
 fi
 
 STACK_USER="stack"
