@@ -22,6 +22,11 @@ SERVICES_HOST=""
 if [ ! -z "${2}" ]; then
   SERVICES_HOST="${2}"
 else
+  echo "Warning: no services node was specified on the command line"
+  echo "Assuming this node should run all services"
+  echo ""
+  echo "If this is not correct, specify the ip address of the services node"
+  echo "as the second paramater to this script"
   SERVICES_HOST="${HOST_IP}"
 fi
 
