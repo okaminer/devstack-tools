@@ -211,11 +211,15 @@ fi
 # make sure it's all owned by the right user
 chown -R ${STACK_USER} "${STACK_DIR}"
 
-# disable all ipv6 if running on Ubuntu
+# disable all ipv6 if running on Ubuntu or CentOS
 if [ "${VARIANT}" == "Ubuntu" ]; then
   echo "net.ipv6.conf.all.disable_ipv6 = 1" >> /etc/sysctl.conf
   echo "net.ipv6.conf.default.disable_ipv6 = 1" >> /etc/sysctl.conf
   echo "net.ipv6.conf.lo.disable_ipv6 = 1" >> /etc/sysctl.conf
+  sysctl -p
+elif [ "${VARIANT}" == "CentOS" ]; then
+  echo "net.ipv6.conf.all.disable_ipv6 = 1" >> /etc/sysctl.conf
+  echo "net.ipv6.conf.default.disable_ipv6 = 1" >> /etc/sysctl.conf
   sysctl -p
 fi
 #
