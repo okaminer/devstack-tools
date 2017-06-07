@@ -1,0 +1,20 @@
+#!/bin/bash
+
+if [ -z "${1}" ]; then
+  echo "tail a devstack service log"
+  echo ""
+  echo "$0 service <command>"
+  echo "   service is the service to manipulate, such as c-vol or n-cpu"
+  echo "   command is an optional argument for what to do with the service before tailing"
+  echo "           such as start, restart"
+  exit 1
+fi
+
+SYSCMD=true
+SERVICE="devstack@${1}"
+if [ ! -z "${2}" ]; then
+  SYSCMD="sudo systemctl ${2} ${SERVICE}"
+fi
+
+eval "${SYSCMD}" && sudo journalctl -f -u ${SERVICE}
+
