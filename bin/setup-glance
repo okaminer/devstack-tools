@@ -15,7 +15,7 @@ while read line
 do
   IMAGE=`echo "${line}" | awk -F',' '{print $1}'`
   NAME=`echo "${line}" | awk -F',' '{print $2}'`
-  echo "Downloading $IMAGE as $NAME.${IMAGE_EXT)}"
+  echo "Downloading $IMAGE as $NAME.${IMAGE_EXT}"
   glance image-download --file "${NAME}.${IMAGE_EXT}" "${IMAGE}"
   echo "Deleting image: $IMAGE"
   openstack image delete $IMAGE
@@ -39,11 +39,13 @@ sudo systemctl restart devstack@g-api
 while read line
 do
   NAME=`echo "${line}" | awk -F',' '{print $2}'`
-  echo "Uploading $NAME.image as $NAME"
-  openstack image create --public \
-                         --container-format bare \
-                         --disk-format qcow2 \
-                         --file "${NAME}.${IMAGE_EXT}" \
-                         "${NAME}"
-  rm "${NAME}.${IMAGE_EXT}"
+  if [ -f "${NAME}.${IMAGE_EXT}" ]; then
+    echo "Uploading $NAME.image as $NAME"
+    openstack image create --public \
+                           --container-format bare \
+                           --disk-format qcow2 \
+                           --file "${NAME}.${IMAGE_EXT}" \
+                           "${NAME}"
+    rm "${NAME}.${IMAGE_EXT}"
+  fi
 done < <(echo "${CURRENT_IMAGES}")
