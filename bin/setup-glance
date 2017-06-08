@@ -38,12 +38,14 @@ sudo systemctl restart devstack@g-api
 # recreate the images
 while read line
 do
+  IMAGE=`echo "${line}" | awk -F',' '{print $1}'`
   NAME=`echo "${line}" | awk -F',' '{print $2}'`
   if [ -f "${NAME}.${IMAGE_EXT}" ]; then
     echo "Uploading $NAME.image as $NAME"
     openstack image create --public \
                            --container-format bare \
                            --disk-format qcow2 \
+                           --id "${IMAGE}" \
                            --file "${NAME}.${IMAGE_EXT}" \
                            "${NAME}"
     rm "${NAME}.${IMAGE_EXT}"
