@@ -7,7 +7,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" && pwd )"
 IMAGE_EXT="$$"
 
-CURRENT_IMAGES=`openstack image list -f csv --long --quote minimal | grep cirros`
+CURRENT_IMAGES=`openstack image list -f csv --long --quote minimal`
 echo "${CURRENT_IMAGES}"
 
 # remove the existing images
