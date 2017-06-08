@@ -5,6 +5,7 @@
 OPENSTACK_RELEASE=${OPENSTACK_RELEASE:-master}
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" && pwd )"
+IMAGE_EXT="$$"
 
 CURRENT_IMAGES=`openstack image list -f csv --long --quote minimal | grep cirros`
 echo "${CURRENT_IMAGES}"
@@ -14,8 +15,8 @@ while read line
 do
   IMAGE=`echo "${line}" | awk -F',' '{print $1}'`
   NAME=`echo "${line}" | awk -F',' '{print $2}'`
-  echo "Downloading $IMAGE as $NAME.image"
-  glance image-download --file "${NAME}" "${IMAGE}"
+  echo "Downloading $IMAGE as $NAME.${IMAGE_EXT)}"
+  glance image-download --file "${NAME}.${IMAGE_EXT}" "${IMAGE}"
   echo "Deleting image: $IMAGE"
   openstack image delete $IMAGE
 done < <(echo "${CURRENT_IMAGES}")
@@ -40,9 +41,9 @@ do
   NAME=`echo "${line}" | awk -F',' '{print $2}'`
   echo "Uploading $NAME.image as $NAME"
   openstack image create --public \
-                         --container_format bare \
-                         --disk_format qcow2 \
-                         --file "${NAME}.image" \
+                         --container-format bare \
+                         --disk-format qcow2 \
+                         --file "${NAME}.${IMAGE_EXT}" \
                          "${NAME}"
-  rm "${NAME}.image"
+  rm "${NAME}.${IMAGE_EXT}"
 done < <(echo "${CURRENT_IMAGES}")
