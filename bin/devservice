@@ -17,4 +17,3 @@ if [ ! -z "${2}" ]; then
 fi
 
 eval "${SYSCMD}" && sudo journalctl -f -u ${SERVICE}
-

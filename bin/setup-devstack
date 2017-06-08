@@ -293,6 +293,19 @@ if [ "${EPHEMERAL}" == "True" ]; then
 
 fi
 
+if [ "${GLANCE}" == "True" ]; then
+  # setup cinder as backend to Glance
+  pip install python-cinderclient os-brick oslo.rootwrap
+  if [ ! -d "/etc/glance/rootwrap.d" ]; then
+    mkdir -p "/etc/glance/rootwrap.d"
+  fi
+  cp "${PROJECT_DIR}/files/glance/${OPENSTACK_RELEASE}/glance_sudoers" "/etc/sudoers.d"
+  cp "${PROJECT_DIR}/files/glance/${OPENSTACK_RELEASE}/glance_rootwrap.cond" "/etc/glance/"
+  cp "${PROJECT_DIR}/files/glance/${OPENSTACK_RELEASE}/scaleio.glance.filters" "/etc/glance/rootwrap.d"
+  sed -i -e "s|## stores=cinder|stores=cinder|g" /git/devstack/local.conf
+  sed -i -e "s|## default_store=cinder|default_store=cinder|g" /git/devstack/local.conf
+fi
+
 cat "${PROJECT_DIR}/files/bash_profile" >> /home/${STACK_USER}/.bash_profile
 chown ${STACK_USER}:${STACK_USER} /home/${STACK_USER}/.bash_profile
 chmod +x /home/${STACK_USER}/.bash_profile
