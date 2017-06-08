@@ -293,7 +293,7 @@ if [ "${EPHEMERAL}" == "True" ]; then
 
 fi
 
-if [ "${GLANCE-unused}" == "True" ]; then
+if [ "${GLANCE}" == "True" ]; then
   # setup cinder as backend to Glance
   pip install python-cinderclient os-brick oslo.rootwrap
   if [ ! -d "/etc/glance/rootwrap.d" ]; then
