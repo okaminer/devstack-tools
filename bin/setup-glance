@@ -8,13 +8,15 @@ PROJECT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" && pwd )"
 IMAGE_EXT="$$"
 
 CURRENT_IMAGES=`openstack image list -f csv --long --quote minimal`
-echo "${CURRENT_IMAGES}"
 
 # remove the existing images
 while read line
 do
   IMAGE=`echo "${line}" | awk -F',' '{print $1}'`
   NAME=`echo "${line}" | awk -F',' '{print $2}'`
+  if [ "${IMAGE}" == "ID" ]; then
+    continue
+  fi
   echo "Downloading $IMAGE as $NAME.${IMAGE_EXT}"
   glance image-download --file "${NAME}.${IMAGE_EXT}" "${IMAGE}"
   echo "Deleting image: $IMAGE"
@@ -45,9 +47,22 @@ do
     openstack image create --public \
                            --container-format bare \
                            --disk-format qcow2 \
-                           --id "${IMAGE}" \
                            --file "${NAME}.${IMAGE_EXT}" \
                            "${NAME}"
     rm "${NAME}.${IMAGE_EXT}"
   fi
 done < <(echo "${CURRENT_IMAGES}")
+
+# now, manipulate the tempest.conf file
+TEMPEST_CONF="/opt/stack/tempest/etc/tempest.conf"
+if [ -f "${TEMPEST_CONF}" ]; then
+   # get the first cirros image and use it...
+   TEMPEST_IMAGE=`openstack image list -f csv --long --quote minimal | grep cirros | head -n 1 | awk -F',' '{print$1}'`
+   sudo sed -i -e "s|^image_ref_alt = .*|image_ref_alt = ${TEMPEST_IMAGE}|g" "${TEMPEST_CONF}"
+   sudo sed -i -e "s|^image_ref = .*|image_ref = ${TEMPEST_IMAGE}|g" "${TEMPEST_CONF}"
+fi
+
+echo "All done. You should wait a while before using the images so that the data copying can complete"
+
+
+
