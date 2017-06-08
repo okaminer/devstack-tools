@@ -1,0 +1,27 @@
+#!/bin/bash
+#
+# Script to setup cinder as backend to glance
+
+OPENSTACK_RELEASE=${OPENSTACK_RELEASE:-master}
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" && pwd )"
+
+# Make sure only root can run our script
+if [ "$(id -u)" != "0" ]; then
+   echo "This script must be run as root" 1>&2
+   exit 1
+fi
+
+# setup cinder as backend to Glance
+pip install python-cinderclient os-brick oslo.rootwrap
+if [ ! -d "/etc/glance/rootwrap.d" ]; then
+  mkdir -p "/etc/glance/rootwrap.d"
+fi
+cp "${PROJECT_DIR}/files/glance/${OPENSTACK_RELEASE}/glance_sudoers" "/etc/sudoers.d"
+cp "${PROJECT_DIR}/files/glance/${OPENSTACK_RELEASE}/glance_rootwrap.conf" "/etc/glance/rootwrap.conf"
+cp "${PROJECT_DIR}/files/glance/${OPENSTACK_RELEASE}/scaleio.glance.filters" "/etc/glance/rootwrap.d"
+sed -i -e "s|^#stores.*|stores=cinder|g" /etc/glance/glance-api.conf
+sed -i -e "s|^#default_store.*|default_store=cinder|g" /etc/glance/glance-api.conf
+
+echo "Restarting glance-api"
+eval "${PROJECT_DIR}/bin/devservice g-api restart"
