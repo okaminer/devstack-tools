@@ -24,4 +24,4 @@ sed -i -e "s|^#stores.*|stores=cinder|g" /etc/glance/glance-api.conf
 sed -i -e "s|^#default_store.*|default_store=cinder|g" /etc/glance/glance-api.conf
 
 echo "Restarting glance-api"
-eval "${PROJECT_DIR}/bin/devservice g-api restart"
+systemctl restart devstack@g-api
