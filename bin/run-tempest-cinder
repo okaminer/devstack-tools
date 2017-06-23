@@ -6,7 +6,7 @@
 DIRECTORY="/opt/stack/tempest"
 ME=`basename "${0}"`
 LOGFILE="/tmp/${ME}.log"
-TEST='^(?=.*volume)(?!.*extend)(?!.*test_stamp_pattern)(?!.*test_volume_upload).*'
+TEST='^(?=.*volume)(?!.*extend)(?!.*test_stamp_pattern).*'
 
 # ensure the directory exists
 if [ ! -d "${DIRECTORY}" ]; then
