@@ -5,6 +5,8 @@
 # set the directory where the code is
 DIRECTORY="/opt/stack/tempest"
 ME=`basename "${0}"`
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" && pwd )"
 CRUDINI=`which crudini`
 LOGFILE="/tmp/${ME}.log"
 TEST='^(?=.*volume)(?!.*extend)(?!.*test_stamp_pattern).*'
@@ -22,16 +24,7 @@ if [ -z "${OS_USERNAME}" -o -z "${OS_AUTH_URL}" ]; then
   exit 1
 fi
 
-# the newton version of devstack does not support setting some values in tempest.conf
-# so we will set them here
-if [ ! -z "${CRUDINI}" ]; then
-  # get the value for volume size
-  crudini --get /opt/stack/tempest/etc/tempest.conf volume volume_size
-  # if the setting was not found, set it
-  if [ $? -ne 0 ]; then
-    crudini --set /opt/stack/tempest/etc/tempest.conf volume volume_size 8
-  fi
-fi
+"${PROJECT_DIR}/bin/tweak-tempest"
 
 # cd to the directory
 cd "${DIRECTORY}"
