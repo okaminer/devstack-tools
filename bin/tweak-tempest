@@ -1,0 +1,43 @@
+#!/bin/bash
+#
+# This script teaks the tempest config files slightly
+# this helps account for settings that may not be exposed via devstack
+
+function set_value_if_unset {
+  local file=$1
+  local section=$2
+  local option=$3
+  local value=$4
+
+  VAL=`iniget "${file}" "${section}" "${option}"`
+  if [ -z "${VAL}" ]; then
+    # it is not set, set it
+    iniset "${file}" "${section}" "${option}" "${value}"
+  fi
+}
+
+
+DEVSTACK_DIR=""
+if [ -d /get/devstack ]; then
+  DEVSTACK_DIR="/git/devstack"
+fi
+# devstack contains some handy code to manipulate ini files
+source "${DEVSTACK_DIR}/inc/ini-config"
+
+# set the directory where the code is
+TEMPEST_CONF="/opt/stack/tempest/etc/tempest.conf"
+
+# ensure the file exists
+if [ ! -f "${TEMPEST_CONF}" ]; then
+   echo "The tempest config file does not seem to exist!"
+   exit 1
+fi
+
+# the newton version of devstack does not support setting some values in tempest.conf
+# so we will set them here
+set_value_if_unset "${TEMPEST_CONF}" volume volume_size 8
+
+# make the necessary flavors
+# scaleio image backend only supports disks in multiples of 8GB
+#openstack flavor create TEMPEST_REF --id 100 --ram 512 --disk 8 --vcpus 1
+#openstack flavor create TEMPEST_REF_ALT --id 101 --ram 512 --disk 16 --vcpus 1
