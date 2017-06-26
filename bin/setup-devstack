@@ -139,6 +139,7 @@ if [ "${VARIANT}" == "Ubuntu" ]; then
   apt-get update
   apt-get install -y \
      build-essential \
+     crudini \
      dialog \
      libpq-dev \
      openssh-server \
@@ -152,6 +153,7 @@ elif [ "${VARIANT}" == "CentOS" ]; then
   # add the repo that contains python3.5 (needed for tox tests)
   yum install -y https://centos7.iuscommunity.org/ius-release.rpm
   yum install -y \
+     crudini \
      dialog \
      python35u-devel \
      python-pip \

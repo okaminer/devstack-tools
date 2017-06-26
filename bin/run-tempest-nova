@@ -6,6 +6,7 @@
 DIRECTORY="/opt/stack/tempest"
 ME=`basename "${0}"`
 LOGFILE="/tmp/${ME}.log"
+CRUDINI=`which crudini`
 DISABLED_TESTS=""
 DISABLED_TESTS="$DISABLED_TESTS(?!.*with_scheduler_hint_group)"
 DISABLED_TESTS="$DISABLED_TESTS(?!.*novnc)"
@@ -22,6 +23,17 @@ fi
 if [ -z "${OS_USERNAME}" -o -z "${OS_AUTH_URL}" ]; then
   echo "Source the openrc file in the devstack directory before running this script"
   exit 1
+fi
+
+# the newton version of devstack does not support setting some values in tempest.conf
+# so we will set them here
+if [ ! -z "${CRUDINI}" ]; then
+  # get the value for volume size
+  crudini --get /opt/stack/tempest/etc/tempest.conf volume volume_size
+  # if the setting was not found, set it
+  if [ $? -ne 0 ]; then
+    crudini --set /opt/stack/tempest/etc/tempest.conf volume volume_size 8
+  fi
 fi
 
 # cd to the directory
