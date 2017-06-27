@@ -38,6 +38,12 @@ fi
 # the newton version of devstack does not support setting some values in tempest.conf
 # so we will set them here
 set_value_if_unset "${TEMPEST_CONF}" volume volume_size 8
+set_value_if_unset "${TEMPEST_CONF}" volume disk_format qcow2
+set_value_if_unset "${TEMPEST_CONF}" volume-feature-enabled manage_snapshot False
+set_value_if_unset "${TEMPEST_CONF}" volume-feature-enabled manage_volume False
+set_value_if_unset "${TEMPEST_CONF}" compute-feature-enabled live_migrate_back_and_forth False
+set_value_if_unset "${TEMPEST_CONF}" compute-feature-enabled block_migration_for_live_migration False
+set_value_if_unset "${TEMPEST_CONF}" compute-feature-enabled live_migration True
 
 # make the necessary flavors
 # scaleio image backend only supports disks in multiples of 8GB
