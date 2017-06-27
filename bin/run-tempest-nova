@@ -28,6 +28,10 @@ if [ -z "${OS_USERNAME}" -o -z "${OS_AUTH_URL}" ]; then
 fi
 
 "${PROJECT_DIR}/bin/tweak-tempest"
+if [ $? -ne 0 ]; then
+  echo "Error configuring tempest"
+  exit 1
+fi
 
 # cd to the directory
 cd "${DIRECTORY}"

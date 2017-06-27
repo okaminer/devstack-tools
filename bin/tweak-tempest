@@ -16,11 +16,7 @@ function set_value_if_unset {
   fi
 }
 
-DEVSTACK_DIR=""
-if [ -d /get/devstack ]; then
-  DEVSTACK_DIR="/git/devstack"
-fi
-
+DEVSTACK_DIR=${DEVSTACK_DIR:-/git/devstack}
 if [ ! -d "${DEVSTACK_DIR}" ]; then
   echo "Unable to find the devstack directory"
   echo "Please export it as the DEVSTACK_DIR environment variable"
