@@ -9,7 +9,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" && pwd )"
 CRUDINI=`which crudini`
 LOGFILE="/tmp/${ME}.log"
-TEST='^(?=.*volume)(?!.*test_stamp_pattern).*'
+TEST='^(?=.*image).*'
 
 # ensure the directory exists
 if [ ! -d "${DIRECTORY}" ]; then
