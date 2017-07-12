@@ -182,13 +182,18 @@ echo "Setting up the ssh keys for root"
 if [ ! -d /root/.ssh ]; then
    mkdir -p /root/.ssh
 fi
-cp "${PROJECT_DIR}"/ssh/* /root/.ssh
+if [ ! -f /root/.ssh/id_rsa ]; then
+   cp "${PROJECT_DIR}"/ssh/* /root/.ssh
+fi
 chmod -R 700 /root/.ssh
+
 echo "setting up ssh for the ${STACK_USER} user"
 if [ ! -d "/home/${STACK_USER}/.ssh" ]; then
    mkdir -p "/home/${STACK_USER}/.ssh"
 fi
-cp "${PROJECT_DIR}"/ssh/* "/home/${STACK_USER}/.ssh"
+if [ ! -d "/home/${STACK_USER}/.ssh/id_rsa" ]l then
+   cp /root/.ssh/* "/home/${STACK_USER}/.ssh"
+fi
 chown -R "${STACK_USER}:${STACK_USER}" "/home/${STACK_USER}/.ssh"
 chmod -R 700 "/home/${STACK_USER}/.ssh"
 
