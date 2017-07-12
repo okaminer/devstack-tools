@@ -191,7 +191,7 @@ echo "setting up ssh for the ${STACK_USER} user"
 if [ ! -d "/home/${STACK_USER}/.ssh" ]; then
    mkdir -p "/home/${STACK_USER}/.ssh"
 fi
-if [ ! -d "/home/${STACK_USER}/.ssh/id_rsa" ]l then
+if [ ! -f "/home/${STACK_USER}/.ssh/id_rsa" ]; then
    cp /root/.ssh/* "/home/${STACK_USER}/.ssh"
 fi
 chown -R "${STACK_USER}:${STACK_USER}" "/home/${STACK_USER}/.ssh"
