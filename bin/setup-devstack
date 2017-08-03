@@ -53,7 +53,7 @@ SIO_USERNAME=${SIO_USERNAME:-admin}
 # scaleio password, if not specified, the default of 'Scaleio123'
 SIO_PASSWORD=${SIO_PASSWORD:-Scaleio123}
 # GATEWAY PORT
-CINDER_SIO_GATEWAYPORT=${CINDER_SIO_GATEWAYPORT:443}
+CINDER_SIO_GATEWAYPORT=${CINDER_SIO_GATEWAYPORT:-443}
 
 function usage {
   echo
