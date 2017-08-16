@@ -1,0 +1,99 @@
+#!/bin/bash
+#
+# script meant to create some volume types
+#
+
+# command line operations
+CREATE="false"
+DELETE="false"
+
+ALLBACKENDS=""
+
+CMD_OPTS="--os-username admin --os-tenant-name admin"
+
+# Volume Types
+SIO_VOLUME_TYPE_THIN="ScaleIO-Thin"
+SIO_VOLUME_TYPE_THICK="ScaleIO-Thick"
+
+function show-volume-types {
+  openstack volume type list
+}
+
+function get-backends {
+  openstack volume service list --format csv | grep cinder-volume > /tmp/$$.list
+  while read line
+  do
+    HOST=`echo "${line}" | awk -F',' '{print $2}'`
+    BACKEND=`echo "${HOST}" | awk -F'@' '{print $2}'`
+    BACKEND=`echo "${BACKEND}" | awk -F'\"' '{print $1}'`
+    ALLBACKENDS="${ALLBACKENDS} ${BACKEND}"
+  done < /tmp/$$.list
+  
+}
+
+function create-volume-types {
+  for a in ${ALLBACKENDS}
+  do
+    # thin
+    TYPE="${SIO_VOLUME_TYPE_THIN}-${a}"
+    openstack volume type create "${TYPE}" $CMD_OPTS
+    openstack volume type set --property volume_backend_name="${a}" "${TYPE}" $CMD_OPTS
+    openstack volume type set --property provisioning:type=thin "${TYPE}" $CMD_OPTS
+
+    # thick
+    TYPE="${SIO_VOLUME_TYPE_THICK}-${a}"
+    openstack volume type create "${TYPE}" $CMD_OPTS
+    openstack volume type set --property volume_backend_name="${a}" "${TYPE}" $CMD_OPTS
+    openstack volume type set --property provisioning:type=thick "${TYPE}" $CMD_OPTS
+  done
+
+}
+
+function delete-volume-types {
+
+  for a in ${ALLBACKENDS}
+  do
+    # thin
+    TYPE="${SIO_VOLUME_TYPE_THIN}-${a}"
+    openstack volume type delete "${TYPE}" $CMD_OPTS
+
+    # thick
+    TYPE="${SIO_VOLUME_TYPE_THICK}-${a}"
+    openstack volume type delete "${TYPE}" $CMD_OPTS
+  done
+
+}
+
+
+
+#
+# Main script logic starts here
+#
+while getopts "cd" opt; do
+  case $opt in
+    c)
+      CREATE="true"
+      ;;
+    d)
+      DELETE="true"
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument." >&2
+      exit 1
+      ;;
+  esac
+done
+
+
+if [ "${CREATE}" == "true" ]; then
+  get-backends
+  create-volume-types
+  show-volume-types
+fi
+
+
+if [ "${DELETE}" == "true" ]; then
+  get-backends
+  delete-volume-types
+  show-volume-types
+fi
