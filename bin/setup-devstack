@@ -81,8 +81,13 @@ function transformFile {
   MIN_COMPUTE_NODES=`echo "${VM_IP}" | tr -cd ',' | wc -c`
   MIN_COMPUTE_NODES=$((MIN_COMPUTE_NODES + 1))
 
+  if [ -z "${CINDER_SIO_POOLS}" ]; then
+    CINDER_SIO_POOLS="${CINDER_SIO_PD}:${CINDER_SIO_SP}"
+  fi
+
   sed \
     -e "s|%ADMIN_PASSWORD%|${ADMIN_PASSWORD}|g" \
+    -e "s|%STORAGEPOOLS%|${CINDER_SIO_POOLS}|g" \
     -e "s|%PROTECTIONDOMAIN%|${CINDER_SIO_PD}|g" \
     -e "s|%STORAGEPOOL%|${CINDER_SIO_SP}|g" \
     -e "s|%GATEWAY%|${CINDER_SIO_GATEWAY}|g" \
