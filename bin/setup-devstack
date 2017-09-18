@@ -55,6 +55,8 @@ SIO_USERNAME=${SIO_USERNAME:-admin}
 SIO_PASSWORD=${SIO_PASSWORD:-Scaleio123}
 # GATEWAY PORT
 CINDER_SIO_GATEWAYPORT=${CINDER_SIO_GATEWAYPORT:-443}
+# verify certs or not, default is false
+VERIFYCERTS=${VERIFYCERTS:-False}
 
 function usage {
   echo
@@ -103,6 +105,7 @@ function transformFile {
     -e "s|%SIO_USERNAME%|${SIO_USERNAME}|g" \
     -e "s|%SIO_PASSWORD%|${SIO_PASSWORD}|g" \
     -e "s|%MIN_COMPUTE_NODES%|${MIN_COMPUTE_NODES}|g" \
+    -e "s|%VERIFYCERTS%|${VERIFYCERTS}|g" \
     "${SOURCE}" > "${TARGET}"
 }
 
