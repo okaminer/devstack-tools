@@ -38,6 +38,7 @@ ADMIN_PASSWORD="secret"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" && pwd )"
 SDCGUID=""
+CERTDIR="${GIT_DIR}/gatewaycerts"
 
 OPENSTACK_RELEASE=${OPENSTACK_RELEASE:-master}
 # the cinder repo
@@ -103,6 +104,15 @@ function transformFile {
     -e "s|%SIO_PASSWORD%|${SIO_PASSWORD}|g" \
     -e "s|%MIN_COMPUTE_NODES%|${MIN_COMPUTE_NODES}|g" \
     "${SOURCE}" > "${TARGET}"
+}
+
+function get_gateway_cert {
+  # this method retrieves the gateway cert and places it in $CERTDIR
+  if [ ! -d "${CERTDIR}" ]; then
+    mkdir -p "${CERTDIR}"
+  fi
+
+  openssl s_client -connect ${CINDER_SIO_GATEWAY}:${CINDER_SIO_GATEWAYPORT} -showcerts </dev/null 2>/dev/null | sed -n '/^-----BEGIN CERT/,/^-----END CERT/p' > "${CERTDIR}/gatewaycerts.pem"
 }
 
 
@@ -267,6 +277,8 @@ elif [ "${VARIANT}" == "CentOS" ]; then
 fi
 
 SDCGUID=`/bin/emc/scaleio/drv_cfg --query_guid`
+
+get_gateway_cert
 
 # create the local configuration files
 if [ "${SERVICES_HOST}" == "${HOST_IP}" ]; then
