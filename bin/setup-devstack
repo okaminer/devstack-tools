@@ -300,7 +300,7 @@ chown -R ${STACK_USER} "${GIT_DIR}"
 
 if [ "${EPHEMERAL}" == "True" ]; then
 
-  if [ "${OPENSTACK_RELEASE}" == "master" -o "${OPENSTACK_RELEASE}" == "stable/pike" ]; then
+  if [ "${OPENSTACK_RELEASE}" == "master" ]; then
     # install siolib from pypi
     pip install siolib
   else
