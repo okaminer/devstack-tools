@@ -1,29 +1,36 @@
 #!/bin/bash
 
-REPO="https://github.com/eric-young/nova.git"
+PUSHREPO="https://github.com/eric-young/nova.git"
+PULLREPO="https://github.com/openstack/nova.git"
+PATCHLOCATION="https://raw.githubusercontent.com/codedellemc/nova-scaleio-ephemeral/master/"
+
 WORKDIR="/tmp/nova-temp"
+PATCHDIR="/tmp/patches"
+
 # sourcetag represents the version of the code we WANT to patch
-SOURCETAG="15.0.2"
-SOURCEBRANCH="sio/ephemeral-${SOURCETAG}"
-# pathtag is the version of the diff file to patch the soure with
-PATCHTAG="15.0.2"
-# COMMIT. If set to 'true', a new brnach is created and pushed to REPO
-COMMIT="false"
+SOURCETAG="16.0.0"
+# patchtag is the basename of the patchfile
+PATCHTAG="16.0.1"
+
+# CREATE_PATCH. If set to 'true', a patch file is created in /tmp
+CREATE_PATCH="true"
+# CREATE_BRANCH. If set to 'true', a new branch is created and pushed to REPO
+CREATE_BRANCH="false"
 
 
 #
 # Main script logic starts here
 #
-while getopts "b:p:c" opt; do
+while getopts "s:p:c" opt; do
   case $opt in
-    b)
+    s)
       SOURCETAG="${OPTARG}"
       ;;
     p)
       PATCHTAG="${OPTARG}"
       ;;
     c)
-      COMMIT="true"
+      CREATE_BRANCH="true"
       ;;
     :)
       echo "Option -$OPTARG requires an argument." >&2
@@ -32,26 +39,40 @@ while getopts "b:p:c" opt; do
   esac
 done
 
+# name of the branch to create and push
+BRANCHTOCREATE="sio/ephemeral-${SOURCETAG}"
+
 echo "==============================="
-echo "Attempting to patch nova/${SOURCETAG} with patch ${PATCHTAG}.diff"
+echo "Attempting to patch nova/${SOURCETAG} with patch ${PATCHTAG}"
 
-
+# make sure the WORKDIR does not exist
 if [ -d "${WORKDIR}" ]; then
    rm -rf "${WORKDIR}"
 fi
+# make sure the directory to hold patches does exist
+if [ ! -d "${PATCHDIR}" ]; then
+   mkdir -p "${PATCHDIR}"
+fi
 
 # clone the nova repo
-git clone "${REPO}" "${WORKDIR}"
+git clone "${PULLREPO}" "${WORKDIR}"
 
 # checkout the 'source' tag
 cd "${WORKDIR}"
 git config user.email "eric.young@emc.com"
+git config user.name "Eric Young"
 git fetch --all --tags --prune
-git checkout tags/${SOURCETAG} -b ${SOURCEBRANCH}
+git checkout tags/${SOURCETAG} -b ${BRANCHTOCREATE}
+
+# setup the repo to push to...
+git remote add push "${PUSHREPO}"
 
 # get the patch for the source version
-wget https://raw.githubusercontent.com/eric-young/devstack-tools/master/ephemeral-patches/${PATCHTAG}.diff -O /tmp/${PATCHTAG}.diff
-# cp /tmp/${PATCHTAG}.diff .
+if [ -f "/tmp/${PATCHTAG}.diff" ]; then
+  echo "patch already exists, using existing file"
+else
+   wget "${PATCHLOCATION}/${PATCHTAG}.diff" -O /tmp/${PATCHTAG}.diff
+fi
 
 # apply the patch to the source
 patch -p1 -i /tmp/${PATCHTAG}.diff
@@ -59,29 +80,38 @@ if [ -f ${PATCHTAG}.diff ]; then
   rm ${PATCHTAG}.diff
 fi
 # remove the orig files created by diff
-NUM_ORIG=`find . -name \*.orig | wc -l`
-# remove the rej files created by diff
+find . -name \*.orig -exec rm {} \;
+# count the rej files created by diff
 NUM_REJ=`find . -name \*.rej | wc -l`
 
-if [ $NUM_ORIG != "0" -o $NUM_REJ != "0" ]; then
+# if an rej files exist, stop here
+if [ $NUM_REJ != "0" ]; then
+  echo "Manual intervention required:"
   echo "At least one file did not patch perfectly"
   echo "please look for files with a orig or rej extension"
   echo "before proceeding"
   exit 1
 fi
 
+# if we got here, there were no patch rejections
 echo "The source seems to have patched successfully and the results are"
 echo "in ${WORKDIR}."
 echo "Patched nova/${SOURCETAG} with patch ${PATCHTAG}.diff"
 
-if [ "${COMMIT}" == "true" ]; then
+# create the patch
+if [ "${CREATE_PATCH}" == "true" ]; then
+   git add --all
+   git diff --cached > "${PATCHDIR}/${SOURCETAG}.diff"
+   echo "patch created at ${PATCHDIR}/${SOURCETAG}.diff"
+fi
+
+# create the patch
+if [ "${CREATE_BRANCH}" == "true" ]; then
   # code below here will commit the changes and push them back to the repo
   # as a NEW branch
-
-  # commit the changes
   git add --all
 
   # now the patch file can be created with "git diff --staged > filename.diff"
-  git commit -a -m "modified files after patching version ${SOURCETAG}"
-  git push origin "${SOURCEBRANCH}"
+  git commit -a -m "modified files after patching tag: ${SOURCETAG}"
+  git push push "${BRANCHTOCREATE}"
 fi
