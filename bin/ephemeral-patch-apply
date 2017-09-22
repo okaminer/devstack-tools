@@ -1,0 +1,105 @@
+#!/bin/bash
+
+ME=`basename "${0}"`
+# the repo to pull from (openstack is default)
+REPO="https://github.com/openstack/nova.git"
+# temporary directory to work in
+TEMPDIR="/tmp/${ME}-$$"
+# final destionation of code
+DESTDIR=""
+# BRANCH represents the version of the code we WANT to patch
+BRANCH=""
+# URL to the patch to apply
+PATCH=""
+
+#
+# Main script logic starts here
+#
+while getopts "r:b:p:d:" opt; do
+  case $opt in
+    r)
+      REPO="${OPTARG}"
+      ;;
+    b)
+      BRANCH="${OPTARG}"
+      ;;
+    p)
+      PATCH="${OPTARG}"
+      ;;
+    d)
+      DESTDIR="${OPTARG}"
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument." >&2
+      exit 1
+      ;;
+  esac
+done
+
+
+if [ -z "${PATCH}" ]; then
+  echo "a patch URL must be supplied with the -p argument"
+  exit 1
+fi
+if [ -z "${BRANCH}" ]; then
+  echo "a branch must be supplied with the -b argument"
+  exit 1
+fi
+if [ -z "${DESTDIR}" ]; then
+  echo "a destination directory must be supplied with the -d argument"
+  exit 1
+fi
+
+echo "==============================="
+echo "Attempting to patch ${REPO} ${BRANCH}"
+echo "With patch at ${PATCH}"
+
+if [ -d "${DESTDIR}" ]; then
+   mv "${DESTDIR}" "${DESTDIR}-$$"
+fi
+
+if [ -d "${TEMPDIR}" ]; then
+   rm -rf "${TEMPDIR}"
+fi
+
+# clone the repo
+git clone "${REPO}" -b "${BRANCH}" "${TEMPDIR}"
+
+# checkout the 'source' tag
+cd "${TEMPDIR}"
+
+# get the patch for the source version
+PATCHFILE="${TEMPDIR}/patch-applied.diff"
+wget "${PATCH}" -O "${PATCHFILE}"
+
+# apply the patch to the source
+patch -p1 -i "${PATCHFILE}"
+
+# remove the orig files created by diff
+NUM_ORIG=`find . -name \*.orig | wc -l`
+# remove the rej files created by diff
+NUM_REJ=`find . -name \*.rej | wc -l`
+
+if [ $NUM_ORIG != "0" -o $NUM_REJ != "0" ]; then
+  echo "At least one file did not patch perfectly"
+  echo "please look for files with a orig or rej extension"
+  echo "before proceeding"
+  echo
+  echo "Files are left in ${TEMPDIR}"
+  echo
+  echo "Fix them up before renaming to ${DESTDIR}"
+  echo
+  exit 1
+fi
+
+# need to make sure that the parent of DESTDIR exists
+BASEDIR=`dirname "${DESTDIR}"`
+sudo mkdir -p "${BASEDIR}"
+sudo chmod -R 777 "${BASEDIR}"
+mv "${TEMPDIR}" "${DESTDIR}"
+
+if [ -d "${DESTDIR}" ]; then
+  echo "Successfully patched at ${DESTDIR}"
+else
+  echo "Unable to patch"
+fi
