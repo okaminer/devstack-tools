@@ -1,0 +1,2171 @@
+diff --git a/nova/conf/__init__.py b/nova/conf/__init__.py
+index f0bd45d..8ed4e49 100644
+--- a/nova/conf/__init__.py
++++ b/nova/conf/__init__.py
+@@ -54,6 +54,7 @@ from nova.conf import placement
+ from nova.conf import quota
+ from nova.conf import rdp
+ from nova.conf import remote_debug
++from nova.conf import scaleio
+ from nova.conf import scheduler
+ from nova.conf import serial_console
+ from nova.conf import service
+@@ -105,6 +106,7 @@ pci.register_opts(CONF)
+ placement.register_opts(CONF)
+ quota.register_opts(CONF)
+ rdp.register_opts(CONF)
++scaleio.register_opts(CONF)
+ scheduler.register_opts(CONF)
+ serial_console.register_opts(CONF)
+ service.register_opts(CONF)
+diff --git a/nova/conf/libvirt.py b/nova/conf/libvirt.py
+index a4b4f70..0f25854 100644
+--- a/nova/conf/libvirt.py
++++ b/nova/conf/libvirt.py
+@@ -628,7 +628,7 @@ Possible values:
+ libvirt_imagebackend_opts = [
+     cfg.StrOpt('images_type',
+                default='default',
+-               choices=('raw', 'flat', 'qcow2', 'lvm', 'rbd', 'ploop',
++               choices=('raw', 'flat', 'qcow2', 'lvm', 'rbd', 'ploop', 'sio',
+                         'default'),
+                help="""
+ VM Images format.
+diff --git a/nova/conf/scaleio.py b/nova/conf/scaleio.py
+new file mode 100644
+index 0000000..5de0bba
+--- /dev/null
++++ b/nova/conf/scaleio.py
+@@ -0,0 +1,75 @@
++# Copyright (C) 2017 Dell Inc. or its subsidiaries.
++# All Rights Reserved.
++#
++#    Licensed under the Apache License, Version 2.0 (the "License"); you may
++#    not use this file except in compliance with the License. You may obtain
++#    a copy of the License at
++#
++#         http://www.apache.org/licenses/LICENSE-2.0
++#
++#    Unless required by applicable law or agreed to in writing, software
++#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
++#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
++#    License for the specific language governing permissions and limitations
++#    under the License.
++
++from oslo_config import cfg
++
++sio_group = cfg.OptGroup(
++    name='scaleio', title='ScaleIO ephemeral backend configuration values')
++
++sio_opts = [
++    # All deprecated things are added to keep backward compatibility with
++    # deployments based on
++    # https://github.com/codedellemc/nova-scaleio-ephemeral,
++    # which deployments might be deployed via
++    # Fuel (EMC - ScaleIO Fuel Plugin,
++    # https://github.com/openstack/fuel-plugin-scaleio),
++    # JuJu (JuJu Charms for ScaleIO,
++    # https://github.com/codedellemc/juju-scaleio),
++    # Puppet (ScaleIO for OpenStack plugin,
++    # https://forge.puppet.com/cloudscaling/scaleio_openstack).
++    # These things will be removed after the first Nova release with ScaleIO
++    # ephemeral support.
++    cfg.StrOpt('rest_server_ip',
++               help='The ScaleIO gateway ip address.'),
++    cfg.IntOpt('rest_server_port',
++               default=443,
++               help='The ScaleIO gateway port.'),
++    cfg.StrOpt('rest_server_username',
++               help='The ScaleIO gateway username.'),
++    cfg.StrOpt('rest_server_password',
++               secret=True,
++               help='The ScaleIO gateway password.'),
++    cfg.BoolOpt('verify_server_certificate',
++                default=False,
++                help='Verify server certificate.'),
++    cfg.StrOpt('server_certificate_path',
++               help='Server certificate path.'),
++    cfg.StrOpt('default_sdcguid',
++               help='The ScaleIO default SDC guid to use'),
++    cfg.StrOpt('default_protection_domain_name',
++               deprecated_name='protection_domain_name',
++               help='The ScaleIO default protection domain'),
++    cfg.StrOpt('default_storage_pool_name',
++               deprecated_name='storage_pool_name',
++               help='The ScaleIO default storage pool'),
++    cfg.StrOpt('default_provisioning_type',
++               deprecated_name='provisioning_type',
++               default='thick',
++               choices=('thick', 'thin',
++                        # These choices are DEPRECATED.
++                        'ThickProvisioned', 'ThinProvisioned'),
++               help='Default ScaleIO volume provisioning type.'),
++]
++
++ALL_OPTS = sio_opts
++
++
++def register_opts(conf):
++    conf.register_group(sio_group)
++    conf.register_opts(ALL_OPTS, group=sio_group)
++
++
++def list_opts():
++    return {sio_group: ALL_OPTS}
+diff --git a/nova/tests/unit/virt/image/test_model.py b/nova/tests/unit/virt/image/test_model.py
+index 55b3e9e..d8fe3bd 100644
+--- a/nova/tests/unit/virt/image/test_model.py
++++ b/nova/tests/unit/virt/image/test_model.py
+@@ -60,6 +60,12 @@ class ImageTest(test.NoDBTestCase):
+         self.assertEqual(["rbd.example.org"], img.servers)
+         self.assertEqual(imgmodel.FORMAT_RAW, img.format)
+ 
++    def test_sio_image(self):
++        img = imgmodel.SIOImage()
++
++        self.assertIsInstance(img, imgmodel.Image)
++        self.assertEqual(imgmodel.FORMAT_RAW, img.format)
++
+     def test_equality(self):
+         img1 = imgmodel.LocalFileImage(
+             "/var/lib/libvirt/images/demo.qcow2",
+diff --git a/nova/tests/unit/virt/libvirt/storage/test_sio.py b/nova/tests/unit/virt/libvirt/storage/test_sio.py
+new file mode 100644
+index 0000000..3bf9b81
+--- /dev/null
++++ b/nova/tests/unit/virt/libvirt/storage/test_sio.py
+@@ -0,0 +1,455 @@
++#    Licensed under the Apache License, Version 2.0 (the "License"); you may
++#    not use this file except in compliance with the License. You may obtain
++#    a copy of the License at
++#
++#         http://www.apache.org/licenses/LICENSE-2.0
++#
++#    Unless required by applicable law or agreed to in writing, software
++#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
++#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
++#    License for the specific language governing permissions and limitations
++#    under the License.
++
++import mock
++from oslo_config import cfg
++from oslo_utils import units
++
++from nova import exception
++from nova import test
++from nova.virt.libvirt.storage import sio_utils
++from nova.virt.libvirt import utils as libvirt_utils
++
++
++CONF = cfg.CONF
++
++
++TEST_UUID = 'b0d0b498-1fe2-479e-995c-80ace2f339a7'
++TEST_BASE64_ID = 'sNC0mB/iR56ZXICs4vM5pw=='
++
++
++class FakeException(Exception):
++    pass
++
++
++class FakeExpectedException(Exception):
++    pass
++
++
++class SioUtilsTestCase(test.NoDBTestCase):
++
++    def setUp(self):
++        super(SioUtilsTestCase, self).setUp()
++
++        self.vol_name = u'volume-00000001'
++        self.vol_size_Gb = 8
++        self.vol_size = self.vol_size_Gb * units.Gi
++        self.vol_id = '1x2x3x4x5x'
++        self.sdc_uuid = '00-00-00'
++
++        CONF.set_override('default_protection_domain_name', 'fpd', 'scaleio')
++        CONF.set_override('default_storage_pool_name', 'fsp', 'scaleio')
++        CONF.set_override('default_sdcguid', self.sdc_uuid, 'scaleio')
++
++        patcher = mock.patch('nova.virt.libvirt.storage.sio_utils.siolib')
++        self.siolib = patcher.start()
++        self.addCleanup(patcher.stop)
++        self.sio = self.siolib.ScaleIO.return_value
++        self.siolib.VolumeNotFound = FakeExpectedException
++        self.siolib.VolumeAlreadyMapped = FakeExpectedException
++        self.siolib.VolumeNotMapped = FakeExpectedException
++
++    def test_uuid_to_base64(self):
++        result = sio_utils._uuid_to_base64(TEST_UUID)
++        self.assertEqual(TEST_BASE64_ID, result)
++
++    def test_verify_volume_size(self):
++        sio_utils.verify_volume_size(8 * units.Gi)
++
++        self.assertRaises(
++            exception.NovaException, sio_utils.verify_volume_size, 0)
++        self.assertRaises(
++            exception.NovaException, sio_utils.verify_volume_size,
++            8 * units.Gi - 1)
++        self.assertRaises(
++            exception.NovaException, sio_utils.verify_volume_size,
++            8 * units.Gi + 1)
++
++    def test_choose_volume_size(self):
++        self.assertEqual(8, sio_utils.VOLSIZE_MULTIPLE_GB)
++        # smaller than 8 Gb
++        result = sio_utils.choose_volume_size(5 * units.Gi)
++        self.assertEqual(8 * units.Gi, result)
++        result = sio_utils.choose_volume_size(8 * units.Gi - 1)
++        self.assertEqual(8 * units.Gi, result)
++        # equal to 8 Gb
++        result = sio_utils.choose_volume_size(8 * units.Gi)
++        self.assertEqual(8 * units.Gi, result)
++        # more than 8 Gb
++        result = sio_utils.choose_volume_size(8 * units.Gi + 1)
++        self.assertEqual(16 * units.Gi, result)
++        result = sio_utils.choose_volume_size(16 * units.Gi - 1)
++        self.assertEqual(16 * units.Gi, result)
++
++    def test_get_sio_volume_name(self):
++        instance = mock.Mock()
++        setattr(instance, 'uuid', TEST_UUID)
++
++        result = sio_utils.get_sio_volume_name(instance, 'fake')
++        self.assertEqual(TEST_BASE64_ID + 'fake', result)
++
++        result = sio_utils.get_sio_volume_name(instance, 'disk.fake')
++        self.assertEqual(TEST_BASE64_ID + 'fake', result)
++
++        result = sio_utils.get_sio_volume_name(instance, 'disk')
++        self.assertEqual(TEST_BASE64_ID, result)
++
++        # max 7 chars for disk name
++        sio_utils.get_sio_volume_name(instance, 'fake123')
++        self.assertRaises(RuntimeError, sio_utils.get_sio_volume_name,
++                          instance, 'fake1234')
++
++    def test_get_sio_snapshot_name(self):
++        result = sio_utils.get_sio_snapshot_name(
++            'vol_name', libvirt_utils.RESIZE_SNAPSHOT_NAME)
++        self.assertEqual(result, 'vol_name/~')
++
++        result = sio_utils.get_sio_snapshot_name(
++            'vol_name', 'snap_name')
++        self.assertEqual(result, 'vol_name/snap_name')
++
++        # max 30 chars in two strings
++        sio_utils.get_sio_snapshot_name(
++            '123456789012345', '123456789012345')
++        self.assertRaises(RuntimeError, sio_utils.get_sio_snapshot_name,
++                          '1234567890123456', '123456789012345')
++
++    def test_is_sio_volume_rescuer(self):
++        result = sio_utils.is_sio_volume_rescuer('aaa')
++        self.assertFalse(result)
++
++        result = sio_utils.is_sio_volume_rescuer('aaa#rescue')
++        self.assertTrue(result)
++
++    def test_get_pool_info(self):
++        self.sio.storagepool_size.return_value = (99, 211, 112)
++        data = sio_utils.get_pool_info()
++        self.assertEqual(99, data['used'])
++        self.assertEqual(211, data['total'])
++        self.assertEqual(112, data['free'])
++        self.sio.storagepool_size.assert_called_with('fpd', 'fsp')
++
++    def test_create_volume_with_defaults(self):
++        self.sio.create_volume.return_value = (self.vol_id, 'fake_name')
++
++        sio_utils.create_volume(self.vol_name, self.vol_size, {})
++        self.sio.create_volume.assert_called_with(
++            self.vol_name, 'fpd', 'fsp', 'ThickProvisioned', self.vol_size_Gb)
++
++    def test_create_volume_with_specs(self):
++        self.sio.create_volume.return_value = (self.vol_id, 'fake_name')
++
++        specs = {
++            'disk:domain': 'fd_1x1',
++            'disk:pool': 'fp_1x1',
++            'disk:provisioning_type': 'thick',
++        }
++        sio_utils.create_volume(self.vol_name, self.vol_size, specs)
++        self.sio.create_volume.assert_called_with(
++            self.vol_name, 'fd_1x1', 'fp_1x1', 'ThickProvisioned',
++            self.vol_size_Gb)
++
++    def test_create_volume_with_legacy_specs(self):
++        self.sio.create_volume.return_value = (self.vol_id, 'fake_name')
++
++        specs = {
++            'sio:pd_name': 'lfd_1x1',
++            'sio:sp_name': 'lfp_1x1',
++            'sio:provisioning_type': 'thin',
++        }
++        sio_utils.create_volume(self.vol_name, self.vol_size, specs)
++        self.sio.create_volume.assert_called_with(
++            self.vol_name, 'lfd_1x1', 'lfp_1x1', 'ThinProvisioned',
++            self.vol_size_Gb)
++
++    def test_remove_volume(self):
++        sio_utils.remove_volume(self.vol_id)
++        self.sio.delete_volume.assert_called_with(
++            self.vol_id, unmap_on_delete=False)
++
++    def test_remove_volume_by_name(self):
++        sio_utils.remove_volume(self.vol_name, ignore_mappings=True)
++        self.sio.delete_volume.assert_called_with(
++            self.vol_name, unmap_on_delete=True)
++
++    def test_remove_volume_with_error(self):
++        self.sio.delete_volume.side_effect = FakeException
++        self.assertRaises(FakeException, sio_utils.remove_volume,
++                          self.vol_id)
++
++        self.sio.delete_volume.side_effect = self.siolib.VolumeNotFound
++        sio_utils.remove_volume(self.vol_id)
++        self.sio.delete_volume.assert_called_with(
++            self.vol_id, unmap_on_delete=False)
++
++    def test_map_volume(self):
++        self.sio.get_volumepath.return_value = '/a/b/c'
++
++        sio_utils.map_volume(self.vol_id, with_no_wait=True)
++
++        self.sio.attach_volume.assert_called_with(
++            self.vol_id, self.sdc_uuid)
++        self.sio.get_volumepath.assert_called_with(
++            self.vol_id, with_no_wait=True)
++
++    def test_map_volume_with_error(self):
++        self.sio.get_volumepath.return_value = '/a/b/c'
++
++        self.sio.attach_volume.side_effect = FakeException
++        self.assertRaises(FakeException, sio_utils.map_volume, self.vol_id)
++
++        self.sio.attach_volume.side_effect = self.siolib.VolumeAlreadyMapped
++        sio_utils.map_volume(self.vol_id)
++        self.sio.attach_volume.assert_called_with(
++            self.vol_id, self.sdc_uuid)
++        self.sio.get_volumepath.assert_called_with(
++            self.vol_id, with_no_wait=False)
++
++    def test_unmap_volume(self):
++        sio_utils.unmap_volume(self.vol_id)
++        self.sio.detach_volume.assert_called_with(
++            self.vol_id, self.sdc_uuid)
++
++    def test_unmap_volume_with_error(self):
++        self.sio.detach_volume.side_effect = FakeException
++        self.assertRaises(FakeException, sio_utils.unmap_volume, self.vol_id)
++
++        self.sio.detach_volume.side_effect = self.siolib.VolumeNotMapped
++        sio_utils.unmap_volume(self.vol_id)
++        self.sio.detach_volume.assert_called_with(
++            self.vol_id, self.sdc_uuid)
++
++        self.sio.detach_volume.side_effect = self.siolib.VolumeNotFound
++        sio_utils.unmap_volume(self.vol_id)
++        self.sio.detach_volume.assert_called_with(
++            self.vol_id, self.sdc_uuid)
++
++    def test_get_volume_id(self):
++        self.sio.get_volumeid.return_value = self.vol_id
++        result = sio_utils.get_volume_id(self.vol_name)
++        self.assertEqual(self.vol_id, result)
++        self.sio.get_volumeid.assert_called_with(self.vol_name)
++
++    def test_get_volume_id_with_error(self):
++        self.sio.get_volumeid.side_effect = self.siolib.VolumeNotFound
++        self.assertRaises(self.siolib.VolumeNotFound,
++                          sio_utils.get_volume_id, self.vol_name)
++        result = sio_utils.get_volume_id(self.vol_name,
++                                         none_if_not_found=True)
++        self.assertIsNone(result)
++        self.sio.get_volumeid.assert_called_with(self.vol_name)
++
++        self.sio.get_volumeid.side_effect = FakeException
++        self.assertRaises(FakeException, sio_utils.get_volume_id,
++                          self.vol_name)
++
++    def test_check_volume_exists(self):
++        self.sio.get_volumeid.return_value = self.vol_id
++        result = sio_utils.get_volume_id(self.vol_name)
++        self.assertTrue(result)
++        self.sio.get_volumeid.assert_called_with(self.vol_name)
++
++        self.sio.get_volumeid.side_effect = self.siolib.VolumeNotFound
++        result = sio_utils.get_volume_id(self.vol_name,
++                                         none_if_not_found=True)
++        self.assertFalse(result)
++        self.sio.get_volumeid.assert_called_with(self.vol_name)
++
++    def test_get_volume_name(self):
++        self.sio.get_volumename.return_value = self.vol_id
++        result = sio_utils.get_volume_name(self.vol_name)
++        self.assertEqual(self.vol_id, result)
++        self.sio.get_volumename.assert_called_with(self.vol_name)
++
++    def test_get_volume_path(self):
++        self.sio.get_volumepath.return_value = '/a/b'
++        result = sio_utils.get_volume_path(self.vol_id)
++        self.assertEqual('/a/b', result)
++        self.sio.get_volumepath.assert_called_with(self.vol_id)
++
++        self.sio.get_volumepath.side_effect = self.siolib.VolumeNotMapped
++        result = sio_utils.get_volume_path(self.vol_id)
++        self.assertIsNone(result)
++        self.sio.get_volumepath.assert_called_with(self.vol_id)
++
++    def test_get_volume_size(self):
++        self.sio.get_volumesize.return_value = self.vol_size / units.Ki
++        result = sio_utils.get_volume_size(self.vol_id)
++        self.assertEqual(self.vol_size, result)
++        self.sio.get_volumesize.assert_called_with(self.vol_id)
++
++    @mock.patch.object(sio_utils, 'images')
++    def test_import_image(self, mock_images):
++        img_info = mock.Mock()
++        setattr(img_info, 'file_format', 'fake')
++        mock_images.qemu_img_info.return_value = img_info
++
++        sio_utils.import_image('a', 'b')
++        mock_images.convert_image.assert_called_with('a', 'b', 'fake', 'raw',
++                                                     run_as_root=True)
++
++    @mock.patch.object(sio_utils, 'images')
++    def test_export_image(self, mock_images):
++        sio_utils.export_image('b', 'a', 'c')
++        mock_images.convert_image.assert_called_with('b', 'a', 'raw', 'c',
++                                                     run_as_root=True)
++
++    def test_extend_volume_without_path(self):
++        self.sio.get_volumepath.return_value = None
++        sio_utils.extend_volume(self.vol_id, self.vol_size)
++        self.sio.extend_volume.assert_called_with(self.vol_id,
++                                                    self.vol_size_Gb)
++        self.sio.get_volumepath.assert_called_with(self.vol_id,
++                                                     with_no_wait=True)
++
++    @mock.patch.object(sio_utils, 'utils')
++    def test_extend_volume_with_path(self, mock_utils):
++        self.sio.get_volumepath.return_value = '/a/b'
++        mock_utils.execute.return_value = (self.vol_size, None)
++
++        sio_utils.extend_volume(self.vol_id, self.vol_size)
++
++        self.sio.extend_volume.assert_called_with(self.vol_id,
++                                                  self.vol_size_Gb)
++        self.sio.get_volumepath.assert_called_with(self.vol_id,
++                                                   with_no_wait=True)
++        mock_utils.execute.assert_called_with('blockdev', '--getsize64',
++                                              '/a/b', run_as_root=True)
++
++        # with resize error
++        mock_utils.execute.return_value = (2 * (self.vol_size + 1), None)
++        sio_utils.extend_volume(self.vol_id, self.vol_size)
++        mock_utils.execute.assert_called_with('blockdev', '--getsize64',
++                                              '/a/b', run_as_root=True)
++
++    def test_move_volume_not_moved(self):
++        specs = {'disk:domain': 'a', 'disk:pool': 'b'}
++        sio_utils.move_volume(self.vol_id, self.vol_name, specs, specs)
++
++    @mock.patch.object(sio_utils, 'utils')
++    def test_move_volume(self, mock_utils):
++        orig_specs = {'disk:domain': 'aa', 'disk:pool': 'bb'}
++
++        self.sio.get_volumesize.return_value = self.vol_size / units.Ki
++        self.sio.create_volume.return_value = ('new_id', 'fake_name')
++        self.sio.get_volumepath.side_effect = (
++            lambda x: '/a/b/c' if x == self.vol_id else '/c/b/a')
++        mock_utils.execute.return_value = (self.vol_size, None)
++
++        sio_utils.move_volume(self.vol_id, self.vol_name, {}, orig_specs)
++
++        self.sio.get_volumesize.assert_called_with(self.vol_id)
++        self.sio.create_volume.assert_called_with(
++            self.vol_name + '/#', 'fpd', 'fsp', 'ThickProvisioned',
++            self.vol_size_Gb)
++        self.sio.attach_volume.assert_has_calls(
++            [mock.call('new_id', self.sdc_uuid),
++             mock.call(self.vol_id, self.sdc_uuid)])
++        self.sio.get_volumepath.assert_has_calls(
++            [mock.call('new_id'), mock.call(self.vol_id)])
++        mock_utils.execute.assert_called_with(
++            'dd', 'if=/a/b/c', 'of=/c/b/a', 'bs=1M', 'iflag=direct',
++            run_as_root=True)
++        self.sio.delete_volume.assert_called_with(
++            self.vol_id, unmap_on_delete=True)
++        self.sio.detach_volume.assert_called_with(
++            'new_id', self.sdc_uuid)
++        self.sio.rename_volume.assert_called_with(
++            'new_id', self.vol_name)
++
++    def test_move_volume_error(self):
++        orig_specs = {'disk:domain': 'aa', 'disk:pool': 'bb'}
++
++        self.sio.get_volumesize.return_value = self.vol_size / units.Ki
++        self.sio.create_volume.return_value = ('new_id', 'fake_name')
++        self.sio.attach_volume.side_effect = FakeException
++
++        self.assertRaises(FakeException, sio_utils.move_volume,
++                          self.vol_id, self.vol_name, {}, orig_specs)
++
++        self.sio.get_volumesize.assert_called_with(self.vol_id)
++        self.sio.create_volume.assert_called_with(
++            self.vol_name + '/#', 'fpd', 'fsp', 'ThickProvisioned',
++            self.vol_size_Gb)
++        self.sio.delete_volume.assert_called_with(
++            'new_id', unmap_on_delete=True)
++
++    def test_snapshot_volume(self):
++        sio_utils.snapshot_volume(self.vol_id, 'snap_name')
++        self.sio.snapshot_volume.assert_called_with(self.vol_id, 'snap_name')
++
++    def test_rollback_to_snapshot(self):
++        self.sio.get_volumeid.return_value = 'snap_id'
++
++        sio_utils.rollback_to_snapshot(self.vol_id, self.vol_name, 'snap_name')
++
++        self.sio.get_volumeid.assert_called_with('snap_name')
++        self.sio.delete_volume.assert_called_with(
++            self.vol_id, unmap_on_delete=True)
++        self.sio.rename_volume.assert_called_with(
++            'snap_id', self.vol_name)
++        self.sio.attach_volume.assert_called_with(
++            'snap_id', self.sdc_uuid)
++
++    def test_map_volumes(self):
++        self.sio.list_volume_infos.return_value = [
++            {'name': TEST_BASE64_ID + '#1', 'id': '0-1'},
++            {'name': TEST_BASE64_ID + '#2', 'id': '0-2'}]
++
++        instance = mock.Mock()
++        setattr(instance, 'uuid', TEST_UUID)
++        sio_utils.map_volumes(instance)
++
++        self.sio.list_volume_infos.assert_called_with(
++            filters={'name_prefix': TEST_BASE64_ID})
++        self.sio.attach_volume.assert_has_calls(
++            [mock.call('0-1', '00-00-00'), mock.call('0-2', '00-00-00')])
++        self.sio.get_volumepath.assert_has_calls(
++            [mock.call('0-1', with_no_wait=True),
++             mock.call('0-2', with_no_wait=True)])
++
++    def test_cleanup_volumes(self):
++        self.sio.list_volume_infos.return_value = [
++            {'name': TEST_BASE64_ID + '#1', 'id': '0-1'},
++            {'name': TEST_BASE64_ID + '#2', 'id': '0-2'}]
++
++        instance = mock.Mock()
++        setattr(instance, 'uuid', TEST_UUID)
++        sio_utils.cleanup_volumes(instance)
++
++        self.sio.list_volume_infos.assert_called_with(
++            filters={'name_prefix': TEST_BASE64_ID})
++        self.sio.delete_volume.assert_has_calls(
++            [mock.call('0-1', unmap_on_delete=True),
++             mock.call('0-2', unmap_on_delete=True)])
++
++    def test_cleanup_volumes_unmap_only(self):
++        self.sio.list_volume_infos.return_value = [
++            {'name': TEST_BASE64_ID + '#1', 'id': '0-1'},
++            {'name': TEST_BASE64_ID + '#2', 'id': '0-2'}]
++
++        instance = mock.Mock()
++        setattr(instance, 'uuid', TEST_UUID)
++        sio_utils.cleanup_volumes(instance, unmap_only=True)
++
++        self.sio.list_volume_infos.assert_called_with(
++            filters={'name_prefix': TEST_BASE64_ID})
++        self.sio.detach_volume.assert_has_calls(
++            [mock.call('0-1', '00-00-00'), mock.call('0-2', '00-00-00')])
++
++    def test_cleanup_rescue_volumes(self):
++        instance = mock.Mock()
++        setattr(instance, 'uuid', TEST_UUID)
++        sio_utils.cleanup_rescue_volumes(instance)
++
++        self.sio.delete_volume.assert_called_with(
++            TEST_BASE64_ID + 'rescue', unmap_on_delete=True)
+diff --git a/nova/tests/unit/virt/libvirt/test_driver.py b/nova/tests/unit/virt/libvirt/test_driver.py
+index c29b396..464954f 100644
+--- a/nova/tests/unit/virt/libvirt/test_driver.py
++++ b/nova/tests/unit/virt/libvirt/test_driver.py
+@@ -9619,7 +9619,8 @@ class LibvirtConnTestCase(test.NoDBTestCase,
+         self.mox.StubOutWithMock(drvr, '_fetch_instance_kernel_ramdisk')
+         self.mox.StubOutWithMock(libvirt_driver.libvirt_utils, 'create_image')
+ 
+-        disk_info = {'path': 'foo', 'type': disk_type,
++        disk_info = {'path': '/fake/instance/dir/foo',
++                     'type': disk_type,
+                      'disk_size': 1 * 1024 ** 3,
+                      'virt_disk_size': 20 * 1024 ** 3,
+                      'backing_file': None}
+@@ -9651,7 +9652,7 @@ class LibvirtConnTestCase(test.NoDBTestCase,
+         disk_info = [
+             {u'backing_file': backing_file,
+              u'disk_size': 10747904,
+-             u'path': u'disk_path',
++             u'path': u'/fake/instance/dir/disk_path',
+              u'type': u'qcow2',
+              u'virt_disk_size': 25165824}]
+ 
+@@ -9679,7 +9680,7 @@ class LibvirtConnTestCase(test.NoDBTestCase,
+         disk_info = [
+             {u'backing_file': backing_file,
+              u'disk_size': 10747904,
+-             u'path': u'disk_path',
++             u'path': u'/fake/instance/dir/disk_path',
+              u'type': u'qcow2',
+              u'virt_disk_size': 25165824}]
+ 
+@@ -9942,6 +9943,36 @@ class LibvirtConnTestCase(test.NoDBTestCase,
+         migrate_data.serial_listen_addr = '127.0.0.1'
+         self.assertEqual(migrate_data, result)
+ 
++    @mock.patch.object(os, 'mkdir')
++    @mock.patch('nova.virt.libvirt.utils.get_instance_path_at_destination')
++    @mock.patch('nova.virt.libvirt.driver.remotefs.'
++                'RemoteFilesystem.copy_file')
++    @mock.patch('nova.virt.configdrive.required_by', return_value=True)
++    def test_pre_live_migration_sio_with_config_drive(
++            self, mock_required_by, mock_copy_file, mock_get_instance_path,
++            mock_mkdir):
++        self.flags(config_drive_format='iso9660')
++        self.flags(images_type='sio', group='libvirt')
++        fake_instance_path = os.path.join(cfg.CONF.instances_path,
++                                          '/fake_instance_uuid')
++        mock_get_instance_path.return_value = fake_instance_path
++
++        drvr = libvirt_driver.LibvirtDriver(fake.FakeVirtAPI(), False)
++
++        instance = objects.Instance(**self.test_instance)
++        migrate_data = objects.LibvirtLiveMigrateData()
++        migrate_data.is_shared_instance_path = False
++        migrate_data.is_shared_block_storage = True
++        migrate_data.block_migration = False
++        migrate_data.instance_relative_path = 'foo'
++        src = "%s:%s/disk.config" % (instance.host, fake_instance_path)
++
++        with mock.patch.object(nova.virt.libvirt.driver, 'sio_utils'):
++            drvr.pre_live_migration(
++                self.context, instance, None, [], None, migrate_data)
++
++        mock_copy_file.assert_called_once_with(src, fake_instance_path)
++
+     @mock.patch('nova.virt.driver.block_device_info_get_mapping',
+                 return_value=())
+     def test_pre_live_migration_block_with_config_drive_mocked_with_vfat(
+@@ -10122,6 +10153,15 @@ class LibvirtConnTestCase(test.NoDBTestCase,
+                              'disk_available_mb': 123,
+                              'image_type': 'qcow2',
+                              'block_migration': False},
++                            {'is_shared_block_storage': True,
++                             'is_shared_instance_path': False,
++                             'is_volume_backed': False,
++                             'filename': 'foo',
++                             'instance_relative_path': 'bar',
++                             'disk_over_commit': False,
++                             'disk_available_mb': 123,
++                             'image_type': 'qcow2',
++                             'block_migration': False},
+                             {'is_shared_block_storage': False,
+                              'is_shared_instance_path': True,
+                              'is_volume_backed': False,
+@@ -10161,6 +10201,37 @@ class LibvirtConnTestCase(test.NoDBTestCase,
+                 self.assertIsInstance(res,
+                                       objects.LibvirtLiveMigrateData)
+ 
++    def test_pre_live_migration_sio(self):
++        self.flags(images_type='sio', group='libvirt')
++        migrate_data = migrate_data_obj.LibvirtLiveMigrateData(
++            is_shared_block_storage=True,
++            is_shared_instance_path=False,
++            block_migration=False,
++            instance_relative_path='foo',
++        )
++
++        drvr = libvirt_driver.LibvirtDriver(fake.FakeVirtAPI(), False)
++        instance = objects.Instance(**self.test_instance)
++        # creating mocks
++        with test.nested(
++            mock.patch.object(nova.virt.libvirt.driver, 'sio_utils'),
++            mock.patch.object(drvr,
++                              'ensure_filtering_rules_for_instance'),
++            mock.patch.object(drvr, 'plug_vifs'),
++        ) as (
++            sio_utils_mock,
++            rules_mock,
++            plug_mock,
++        ):
++            disk_info_json = jsonutils.dumps({})
++            res = drvr.pre_live_migration(self.context, instance,
++                                          block_device_info=None,
++                                          network_info=[],
++                                          disk_info=disk_info_json,
++                                          migrate_data=migrate_data)
++            sio_utils_mock.map_volumes.assert_called_once_with(instance)
++            self.assertIsInstance(res, objects.LibvirtLiveMigrateData)
++
+     def test_pre_live_migration_with_not_shared_instance_path(self):
+         migrate_data = migrate_data_obj.LibvirtLiveMigrateData(
+             is_shared_block_storage=False,
+@@ -16625,7 +16696,9 @@ class LibvirtDriverTestCase(test.NoDBTestCase):
+                                               delay_on_retry=True, attempts=5)
+             mock_rmtree.assert_not_called()
+ 
+-    def test_cleanup_resize_not_same_host(self):
++    def test_cleanup_resize_not_same_host(self, sio=False):
++        if sio:
++            self.flags(images_type='sio', group='libvirt')
+         CONF.set_override('policy_dirs', [], group='oslo_policy')
+         host = 'not' + CONF.host
+         ins_ref = self._create_instance({'host': host})
+@@ -16643,9 +16716,10 @@ class LibvirtDriverTestCase(test.NoDBTestCase):
+                 mock.patch.object(shutil, 'rmtree'),
+                 mock.patch.object(drvr, '_undefine_domain'),
+                 mock.patch.object(drvr, 'unplug_vifs'),
+-                mock.patch.object(drvr, 'unfilter_instance')
++                mock.patch.object(drvr, 'unfilter_instance'),
++                mock.patch.object(drvr, '_cleanup_sio')
+         ) as (mock_exists, mock_get_path, mock_exec, mock_rmtree,
+-              mock_undef, mock_unplug, mock_unfilter):
++              mock_undef, mock_unplug, mock_unfilter, mock_cleanup_sio):
+             mock_exists.return_value = True
+             mock_get_path.return_value = '/fake/inst'
+ 
+@@ -16657,6 +16731,14 @@ class LibvirtDriverTestCase(test.NoDBTestCase):
+             mock_undef.assert_called_once_with(ins_ref)
+             mock_unplug.assert_called_once_with(ins_ref, fake_net)
+             mock_unfilter.assert_called_once_with(ins_ref, fake_net)
++            if sio:
++                mock_cleanup_sio.assert_called_once_with(
++                    ins_ref, destroy_disks=False)
++            else:
++                self.assertFalse(mock_cleanup_sio.called)
++
++    def test_cleanup_resize_not_same_host_sio(self):
++        self.test_cleanup_resize_not_same_host(sio=True)
+ 
+     def test_cleanup_resize_snap_backend(self):
+         CONF.set_override('policy_dirs', [], group='oslo_policy')
+@@ -17403,6 +17485,13 @@ class LibvirtDriverTestCase(test.NoDBTestCase):
+         mock_destroy_volume.assert_called_once_with(
+             mock.ANY, instance.uuid + '_disk.rescue')
+ 
++    @mock.patch('nova.virt.libvirt.storage.sio_utils.cleanup_rescue_volumes')
++    def test_unrescue_sio(self, cleanup_rescue_volumes):
++        self.flags(images_type='sio', group='libvirt')
++        instance = objects.Instance(uuid=uuids.instance, id=1)
++        self._test_unrescue(instance)
++        cleanup_rescue_volumes.assert_called_once_with(instance)
++
+     @mock.patch('shutil.rmtree')
+     @mock.patch('nova.utils.execute')
+     @mock.patch('os.path.exists')
+@@ -17788,6 +17877,26 @@ class LibvirtDriverTestCase(test.NoDBTestCase):
+     def test_cleanup_encrypted_lvm(self):
+         self._test_cleanup_lvm(encrypted=True)
+ 
++    @mock.patch('nova.virt.libvirt.storage.sio_utils.cleanup_volumes')
++    @mock.patch('nova.virt.libvirt.driver.LibvirtDriver.unfilter_instance')
++    @mock.patch('nova.virt.libvirt.driver.LibvirtDriver._undefine_domain')
++    @mock.patch.object(objects.Instance, 'save')
++    def test_cleanup_sio(self, mock_save, mock_undefine_domain, mock_unfilter,
++                         cleanup_volumes):
++        self.flags(images_type="sio",
++                   group='libvirt')
++        drv = libvirt_driver.LibvirtDriver(fake.FakeVirtAPI(), True)
++        instance = self._create_instance()
++
++        drv.cleanup(context, instance, 'fake_network', destroy_vifs=False,
++                    destroy_disks=True)
++        cleanup_volumes.assert_called_once_with(instance, unmap_only=False)
++        cleanup_volumes.reset_mock()
++
++        drv.cleanup(context, instance, 'fake_network', destroy_vifs=False,
++                    destroy_disks=False)
++        cleanup_volumes.assert_called_once_with(instance, unmap_only=True)
++
+     def test_vcpu_model_to_config(self):
+         drv = libvirt_driver.LibvirtDriver(fake.FakeVirtAPI(), True)
+ 
+@@ -19144,6 +19253,16 @@ class LibvirtSnapshotTests(_BaseSnapshotTests):
+                                 recv_meta['id'], self.mock_update_task_state)
+                 self.assertTrue(mock_suspend.called)
+ 
++    @mock.patch.object(fake_libvirt_utils, 'disk_type', new='sio')
++    @mock.patch('nova.virt.libvirt.storage.sio_utils.export_image')
++    def test_sio(self, export_image):
++        self.flags(images_type='sio', group='libvirt')
++        export_image.side_effect = (
++            lambda source, dest, out_format:
++                _fake_convert_image(source, dest, None, out_format))
++
++        self._test_snapshot(disk_format='raw')
++
+ 
+ class LXCSnapshotTests(LibvirtSnapshotTests):
+     """Repeat all of the Libvirt snapshot tests, but with LXC enabled"""
+diff --git a/nova/tests/unit/virt/libvirt/test_imagebackend.py b/nova/tests/unit/virt/libvirt/test_imagebackend.py
+index a083a2c..0d40fec 100644
+--- a/nova/tests/unit/virt/libvirt/test_imagebackend.py
++++ b/nova/tests/unit/virt/libvirt/test_imagebackend.py
+@@ -28,6 +28,7 @@ from oslo_utils import imageutils
+ from oslo_utils import units
+ from oslo_utils import uuidutils
+ 
++from nova.compute import task_states
+ import nova.conf
+ from nova import context
+ from nova import exception
+@@ -40,6 +41,7 @@ from nova.virt import images
+ from nova.virt.libvirt import config as vconfig
+ from nova.virt.libvirt import imagebackend
+ from nova.virt.libvirt.storage import rbd_utils
++from nova.virt.libvirt.storage import sio_utils
+ 
+ CONF = nova.conf.CONF
+ 
+@@ -769,19 +771,18 @@ class LvmTestCase(_ImageTestCase, test.NoDBTestCase):
+             return outer
+ 
+         mock_synchronized.side_effect = fake_synchronized
++        mock_exists.return_value = False
+ 
+-        # Fake exists returns true for paths which have been added to the
+-        # exists set
+-        exists = set()
++        disks = {}
+ 
+-        def fake_exists(path):
+-            return path in exists
++        def fake_get_size(path):
++            return disks[path]
+ 
+-        mock_exists.side_effect = fake_exists
++        mock_lvm.get_volume_size.side_effect = fake_get_size
+ 
+         # Fake create_volume causes exists to return true for the volume
+         def fake_create_volume(vg, lv, size, sparse=False):
+-            exists.add(os.path.join('/dev', vg, lv))
++            disks[os.path.join('/dev', vg, lv)] = size
+ 
+         mock_lvm.create_volume.side_effect = fake_create_volume
+ 
+@@ -876,6 +877,12 @@ class LvmTestCase(_ImageTestCase, test.NoDBTestCase):
+ 
+         self.assertEqual(fake_processutils.fake_execute_get_log(), [])
+ 
++    @mock.patch.object(imagebackend, 'lvm', autospec=True)
++    def test_get_disk_size(self, mock_lvm):
++        image = self.image_class(self.INSTANCE, self.NAME)
++        image.get_disk_size('dummy')
++        mock_lvm.get_volume_size.assert_called_once_with(image.path)
++
+ 
+ class EncryptedLvmTestCase(_ImageTestCase, test.NoDBTestCase):
+     VG = 'FakeVG'
+@@ -1255,6 +1262,12 @@ class EncryptedLvmTestCase(_ImageTestCase, test.NoDBTestCase):
+         self.assertEqual(imgmodel.LocalBlockImage(self.PATH),
+                          model)
+ 
++    @mock.patch.object(imagebackend, 'lvm', autospec=True)
++    def test_get_disk_size(self, mock_lvm):
++        image = self.image_class(self.INSTANCE, self.NAME)
++        image.get_disk_size('dummy')
++        mock_lvm.get_volume_size.assert_called_once_with(image.path)
++
+ 
+ class RbdTestCase(_ImageTestCase, test.NoDBTestCase):
+     FSID = "FakeFsID"
+@@ -1744,9 +1757,278 @@ class PloopTestCase(_ImageTestCase, test.NoDBTestCase):
+         image.cache(fake_fetch, self.TEMPLATE_PATH, self.SIZE)
+ 
+ 
++class SioTestCase(_ImageTestCase, test.NoDBTestCase):
++
++    SIZE = 8 * units.Gi
++
++    def setUp(self):
++        patcher = mock.patch.object(imagebackend.sio_utils, 'get_volume_id',
++                                    autospec=True)
++        self.get_volume_id = patcher.start()
++        self.addCleanup(patcher.stop)
++        self.get_volume_id.return_value = mock.sentinel.sio_id
++
++        self.image_class = imagebackend.Sio
++        super(SioTestCase, self).setUp()
++        self.INSTANCE.flavor = objects.Flavor(extra_specs={})
++        self.INSTANCE.task_state = None
++        self.libvirt_utils = imagebackend.libvirt_utils
++        self.utils = imagebackend.utils
++
++    @mock.patch.object(imagebackend.sio_utils, 'get_volume_size')
++    def test_get_disk_size(self, get_volume_size):
++        get_volume_size.return_value = mock.sentinel.volume_size
++        disk = self.image_class(self.INSTANCE, self.NAME)
++        self.assertEqual(mock.sentinel.volume_size,
++                         disk.get_disk_size('fake'))
++        get_volume_size.assert_called_once_with(mock.sentinel.sio_id)
++
++    @mock.patch.object(imagebackend.sio_utils, 'map_volume')
++    def test_prealloc_image(self, map_volume):
++        CONF.set_override('preallocate_images', 'space')
++
++        fake_processutils.fake_execute_clear_log()
++        fake_processutils.stub_out_processutils_execute(self)
++        disk = self.image_class(self.INSTANCE, self.NAME)
++
++        with test.nested(
++            mock.patch('os.path.exists', return_value=True),
++            mock.patch.object(disk, 'exists', return_value=True),
++            mock.patch.object(disk, 'get_disk_size', return_value=self.SIZE)
++        ) as (_mock_path_exists, _mock_disk_exists, _mock_disk_size):
++
++            disk.cache(mock.Mock(), self.TEMPLATE_PATH, self.SIZE)
++
++        self.assertEqual(fake_processutils.fake_execute_get_log(), [])
++
++    @mock.patch.object(imagebackend.sio_utils, 'map_volume')
++    def test_prealloc_image_without_write_access(self, map_volume):
++        super(SioTestCase, self).test_prealloc_image_without_write_access()
++
++    @mock.patch.object(imagebackend.sio_utils, 'get_volume_path')
++    def test_libvirt_info(self, get_volume_path):
++        super(SioTestCase, self).test_libvirt_info()
++        get_volume_path.assert_called_once_with(mock.sentinel.sio_id)
++
++    @mock.patch.object(imagebackend.sio_utils, 'get_volume_size')
++    @mock.patch('os.path.exists')
++    def _test_cache_exists(self, path_exists, get_volume_size,
++                           template_exists=True):
++        if template_exists:
++            path_exists.return_value = True
++        else:
++            path_exists.side_effect = lambda p: (
++                False if p == self.TEMPLATE_PATH else True)
++        get_volume_size.return_value = self.SIZE
++        disk = self.image_class(self.INSTANCE, self.NAME)
++        with mock.patch.object(disk, 'connect_disk') as mock_connect_disk:
++            disk.cache(mock.Mock(), self.TEMPLATE_PATH, self.SIZE)
++            mock_connect_disk.assert_called_once_with()
++
++    def test_cache_exists(self):
++        self._test_cache_exists(template_exists=True)
++
++    def test_cache_exists_no_template(self):
++        self._test_cache_exists(template_exists=False)
++
++    @mock.patch.object(imagebackend.sio_utils, 'import_image')
++    @mock.patch.object(imagebackend.sio_utils, 'get_volume_size')
++    @mock.patch.object(imagebackend.sio_utils, 'map_volume')
++    @mock.patch.object(imagebackend.sio_utils, 'create_volume')
++    @mock.patch('nova.virt.disk.api.get_disk_size')
++    @mock.patch('os.path.exists')
++    def _test_cache_root(self, path_exists, get_disk_size, create_volume,
++                         map_volume, get_volume_size, import_image,
++                         template_exists=True, rescue=False):
++        self.get_volume_id.return_value = None
++        if template_exists:
++            path_exists.return_value = True
++        else:
++            path_exists.side_effect = lambda p: (
++                False if p == self.TEMPLATE_PATH else True)
++        if rescue:
++            self.NAME = 'disk.rescue'
++        get_disk_size.return_value = units.Gi
++        create_volume.return_value = mock.sentinel.sio_id
++        map_volume.return_value = mock.sentinel.sio_path
++        get_volume_size.return_value = self.SIZE
++        fetch_func = mock.Mock()
++        sio_name = sio_utils.get_sio_volume_name(self.INSTANCE, self.NAME)
++        requested_size = None if rescue else self.SIZE
++        self.INSTANCE.flavor.extra_specs = {'foo': 'bar'}
++        expected_extra_specs = dict(self.INSTANCE.flavor.extra_specs)
++        if rescue:
++            expected_extra_specs['disk:provisioning_type'] = 'thin'
++
++        disk = self.image_class(self.INSTANCE, self.NAME)
++        disk.cache(fetch_func, self.TEMPLATE, size=requested_size,
++                   image_id=mock.sentinel.image_id)
++
++        if template_exists:
++            self.assertFalse(fetch_func.called)
++        else:
++            fetch_func.assert_called_once_with(
++                target=self.TEMPLATE_PATH, image_id=mock.sentinel.image_id)
++        self.get_volume_id.assert_called_once_with(
++            sio_name, none_if_not_found=True)
++        get_disk_size.assert_called_once_with(self.TEMPLATE_PATH)
++        create_volume.assert_called_once_with(
++            sio_name, self.SIZE, expected_extra_specs)
++        map_volume.assert_called_once_with(
++            mock.sentinel.sio_id)
++        import_image.assert_called_once_with(
++            self.TEMPLATE_PATH, mock.sentinel.sio_path)
++        if rescue:
++            self.assertTrue({'foo': 'bar'}, self.INSTANCE.flavor.extra_specs)
++        self.assertEqual(mock.sentinel.sio_id, disk.sio_id)
++        self.assertEqual(mock.sentinel.sio_path, disk.path)
++
++    def test_cache_root(self):
++        self._test_cache_root(template_exists=True)
++
++    def test_cache_root_no_template(self):
++        self._test_cache_root(template_exists=False)
++
++    def test_cache_root_rescue(self):
++        self._test_cache_root(rescue=True)
++
++    def test_cache_root_invalid_size(self):
++        self.SIZE = units.Gi
++        self.assertRaises(exception.NovaException, self._test_cache_root)
++
++    @mock.patch.object(imagebackend.sio_utils, 'get_volume_size')
++    @mock.patch.object(imagebackend.sio_utils, 'map_volume')
++    @mock.patch.object(imagebackend.sio_utils, 'create_volume')
++    @mock.patch('os.path.exists', return_value=True)
++    def test_cache_ephemeral(self, path_exists, create_volume, map_volume,
++                             get_volume_size):
++        self.get_volume_id.return_value = None
++        create_volume.return_value = mock.sentinel.sio_id
++        map_volume.return_value = mock.sentinel.sio_path
++        get_volume_size.return_value = self.SIZE
++        fetch_func = mock.Mock()
++        sio_name = sio_utils.get_sio_volume_name(self.INSTANCE, self.NAME)
++        self.INSTANCE.flavor.extra_specs = {'foo': 'bar'}
++
++        disk = self.image_class(self.INSTANCE, self.NAME)
++        disk.cache(fetch_func, self.TEMPLATE, size=self.SIZE,
++                   fetch_func_arg='fake')
++
++        fetch_func.assert_called_once_with(
++            target=mock.sentinel.sio_path, is_block_dev=True,
++            fetch_func_arg='fake')
++        self.get_volume_id.assert_called_once_with(
++            sio_name, none_if_not_found=True)
++        create_volume.assert_called_once_with(
++            sio_name, self.SIZE, {'foo': 'bar'})
++        self.assertEqual(mock.sentinel.sio_id, disk.sio_id)
++        self.assertEqual(mock.sentinel.sio_path, disk.path)
++
++    def test_cache_ephemeral_invalid_size(self):
++        self.SIZE = units.Gi
++        self.assertRaises(exception.NovaException, self.test_cache_ephemeral)
++
++    @mock.patch.object(imagebackend.sio_utils, 'extend_volume')
++    @mock.patch.object(imagebackend.sio_utils, 'map_volume')
++    @mock.patch.object(imagebackend.sio_utils, 'get_volume_size')
++    @mock.patch('os.path.exists', return_value=True)
++    def test_cache_resize(self, path_exists, get_volume_size, map_volume,
++                          extend_volume):
++        get_volume_size.return_value = self.SIZE
++        disk = self.image_class(self.INSTANCE, self.NAME)
++
++        disk.cache(mock.Mock(), self.TEMPLATE_PATH, self.SIZE * 2)
++
++        extend_volume.assert_called_once_with(
++            mock.sentinel.sio_id, self.SIZE * 2)
++
++    def test_cache_resize_invalid_size(self):
++        self.SIZE = units.Gi
++        self.assertRaises(exception.NovaException, self.test_cache_resize)
++
++    @mock.patch.object(imagebackend.sio_utils, 'map_volume')
++    def test_connect_disk(self, map_volume):
++        disk = self.image_class(self.INSTANCE, self.NAME)
++
++        disk.connect_disk()
++
++        map_volume.assert_called_once_with(
++            mock.sentinel.sio_id, with_no_wait=True)
++
++    @mock.patch.object(imagebackend.sio_utils, 'move_volume')
++    @mock.patch.object(imagebackend.sio_utils, 'map_volume')
++    def test_connect_disk_another_flavor(self, map_volume, move_volume):
++        self.INSTANCE.flavor.extra_specs = {'foo': 'bar'}
++        self.INSTANCE.task_state = task_states.RESIZE_FINISH
++        self.INSTANCE.old_flavor = objects.Flavor(extra_specs={'bar': 'foo'})
++        disk = self.image_class(self.INSTANCE, self.NAME)
++        sio_name = sio_utils.get_sio_volume_name(self.INSTANCE, self.NAME)
++
++        disk.connect_disk()
++
++        map_volume.assert_called_once_with(
++            mock.sentinel.sio_id, with_no_wait=True)
++        move_volume.assert_called_once_with(
++            mock.sentinel.sio_id, sio_name, {'foo': 'bar'}, {'bar': 'foo'},
++            is_mapped=True)
++
++    def test_get_model(self):
++        disk = self.image_class(self.INSTANCE, self.NAME)
++        model = disk.get_model(FakeConn())
++        self.assertIsInstance(model, imgmodel.SIOImage)
++
++    @mock.patch.object(imagebackend.sio_utils, 'export_image')
++    def test_snapshot_extract(self, export_image):
++        disk = self.image_class(
++            self.INSTANCE,
++            path='/dev/disk/by-id/emc-vol-101884a5027f35c3-bf733bc400000001')
++
++        disk.snapshot_extract('target_path', 'out_format')
++
++        export_image.assert_called_once_with(
++            '/dev/disk/by-id/emc-vol-101884a5027f35c3-bf733bc400000001',
++            'target_path', 'out_format')
++        self.assertEqual('bf733bc400000001', disk.sio_id)
++
++    @mock.patch.object(imagebackend.sio_utils, 'snapshot_volume')
++    def test_create_snap(self, snapshot_volume):
++        disk = self.image_class(self.INSTANCE, self.NAME)
++        sio_name = sio_utils.get_sio_volume_name(self.INSTANCE, self.NAME)
++        snap_name = sio_utils.get_sio_snapshot_name(sio_name, 'nova-resize')
++
++        disk.create_snap('nova-resize')
++
++        snapshot_volume.assert_called_once_with(
++            mock.sentinel.sio_id, snap_name)
++
++    @mock.patch.object(imagebackend.sio_utils, 'remove_volume_by_name')
++    def test_remove_snap(self, remove_volume_by_name):
++        disk = self.image_class(self.INSTANCE, self.NAME)
++        sio_name = sio_utils.get_sio_volume_name(self.INSTANCE, self.NAME)
++        snap_name = sio_utils.get_sio_snapshot_name(sio_name, 'nova-resize')
++
++        disk.remove_snap('nova-resize')
++
++        remove_volume_by_name.assert_called_once_with(
++            snap_name)
++
++    @mock.patch.object(imagebackend.sio_utils, 'rollback_to_snapshot')
++    def test_rollback_to_snap(self, rollback_to_snapshot):
++        disk = self.image_class(self.INSTANCE, self.NAME)
++        sio_name = sio_utils.get_sio_volume_name(self.INSTANCE, self.NAME)
++        snap_name = sio_utils.get_sio_snapshot_name(sio_name, 'nova-resize')
++
++        disk.rollback_to_snap('nova-resize')
++
++        rollback_to_snapshot.assert_called_once_with(
++            mock.sentinel.sio_id, sio_name, snap_name)
++
++
+ class BackendTestCase(test.NoDBTestCase):
+-    INSTANCE = objects.Instance(id=1, uuid=uuidutils.generate_uuid())
+-    NAME = 'fake-name.suffix'
++    INSTANCE = objects.Instance(id=1, uuid=uuidutils.generate_uuid(),
++                                flavor=objects.Flavor(extra_specs={}),
++                                task_state=None)
++    NAME = 'name.su'
+ 
+     def setUp(self):
+         super(BackendTestCase, self).setUp()
+@@ -1819,5 +2101,9 @@ class BackendTestCase(test.NoDBTestCase):
+         self.flags(images_rbd_ceph_conf=conf, group='libvirt')
+         self._test_image('rbd', imagebackend.Rbd, imagebackend.Rbd)
+ 
++    @mock.patch('nova.virt.libvirt.imagebackend.sio_utils.siolib')
++    def test_image_sio(self, siolib):
++        self._test_image('sio', imagebackend.Sio, imagebackend.Sio)
++
+     def test_image_default(self):
+         self._test_image('default', imagebackend.Flat, imagebackend.Qcow2)
+diff --git a/nova/tests/unit/virt/libvirt/test_utils.py b/nova/tests/unit/virt/libvirt/test_utils.py
+index 6d345a6..3a703a6 100644
+--- a/nova/tests/unit/virt/libvirt/test_utils.py
++++ b/nova/tests/unit/virt/libvirt/test_utils.py
+@@ -76,6 +76,11 @@ class LibvirtUtilsTestCase(test.NoDBTestCase):
+         d_type = libvirt_utils.get_disk_type_from_path('rbd:pool/instance')
+         self.assertEqual('rbd', d_type)
+ 
++        # Try sio detection
++        d_type = libvirt_utils.get_disk_type_from_path(
++            '/dev/disk/by-id/emc-vol-101884a5027f35c3-bf733bc400000001')
++        self.assertEqual('sio', d_type)
++
+         # Try the other types
+         path = '/myhome/disk.config'
+         d_type = libvirt_utils.get_disk_type_from_path(path)
+diff --git a/nova/virt/image/model.py b/nova/virt/image/model.py
+index 971f7e9..d694ef7 100644
+--- a/nova/virt/image/model.py
++++ b/nova/virt/image/model.py
+@@ -129,3 +129,13 @@ class RBDImage(Image):
+         self.user = user
+         self.password = password
+         self.servers = servers
++
++
++class SIOImage(Image):
++    """Class for images that are volumes on a remote
++    ScaleIO server
++    """
++
++    def __init__(self):
++        """Create a new SIO image object"""
++        super(SIOImage, self).__init__(FORMAT_RAW)
+diff --git a/nova/virt/libvirt/driver.py b/nova/virt/libvirt/driver.py
+index c124c9c..99e907e 100644
+--- a/nova/virt/libvirt/driver.py
++++ b/nova/virt/libvirt/driver.py
+@@ -103,6 +103,7 @@ from nova.virt.libvirt import migration as libvirt_migrate
+ from nova.virt.libvirt.storage import dmcrypt
+ from nova.virt.libvirt.storage import lvm
+ from nova.virt.libvirt.storage import rbd_utils
++from nova.virt.libvirt.storage import sio_utils
+ from nova.virt.libvirt import utils as libvirt_utils
+ from nova.virt.libvirt import vif as libvirt_vif
+ from nova.virt.libvirt.volume import mount
+@@ -1003,6 +1004,8 @@ class LibvirtDriver(driver.ComputeDriver):
+                 self._cleanup_lvm(instance, block_device_info)
+             if CONF.libvirt.images_type == 'rbd':
+                 self._cleanup_rbd(instance)
++        if CONF.libvirt.images_type == 'sio':
++            self._cleanup_sio(instance, destroy_disks)
+ 
+         is_shared_block_storage = False
+         if migrate_data and 'is_shared_block_storage' in migrate_data:
+@@ -1108,6 +1111,9 @@ class LibvirtDriver(driver.ComputeDriver):
+             return disks
+         return []
+ 
++    def _cleanup_sio(self, instance, destroy_disks):
++        sio_utils.cleanup_volumes(instance, unmap_only=not destroy_disks)
++
+     def get_volume_connector(self, instance):
+         root_helper = utils.get_root_helper()
+         return connector.get_connector_properties(
+@@ -1153,6 +1159,8 @@ class LibvirtDriver(driver.ComputeDriver):
+             self._undefine_domain(instance)
+             self.unplug_vifs(instance, network_info)
+             self.unfilter_instance(instance, network_info)
++            if CONF.libvirt.images_type == 'sio':
++                self._cleanup_sio(instance, destroy_disks=False)
+ 
+     def _get_volume_driver(self, connection_info):
+         driver_type = connection_info.get('driver_volume_type')
+@@ -1626,7 +1634,7 @@ class LibvirtDriver(driver.ComputeDriver):
+         image_format = CONF.libvirt.snapshot_image_format or source_type
+ 
+         # NOTE(bfilippov): save lvm and rbd as raw
+-        if image_format == 'lvm' or image_format == 'rbd':
++        if image_format in ('lvm', 'rbd', 'sio'):
+             image_format = 'raw'
+ 
+         metadata = self._create_snapshot_metadata(instance.image_meta,
+@@ -1644,7 +1652,7 @@ class LibvirtDriver(driver.ComputeDriver):
+         #               It is necessary in case this situation changes in the
+         #               future.
+         if (self._host.has_min_version(hv_type=host.HV_DRIVER_QEMU)
+-             and source_type not in ('lvm')
++             and source_type not in ('lvm', 'sio')
+              and not CONF.ephemeral_storage_encryption.enabled
+              and not CONF.workarounds.disable_libvirt_livesnapshot):
+             live_snapshot = True
+@@ -2770,6 +2778,8 @@ class LibvirtDriver(driver.ComputeDriver):
+             filter_fn = lambda disk: (disk.startswith(instance.uuid) and
+                                       disk.endswith('.rescue'))
+             LibvirtDriver._get_rbd_driver().cleanup_volumes(filter_fn)
++        if CONF.libvirt.images_type == 'sio':
++            sio_utils.cleanup_rescue_volumes(instance)
+ 
+     def poll_rebooting_instances(self, timeout, instances):
+         pass
+@@ -3032,10 +3042,11 @@ class LibvirtDriver(driver.ComputeDriver):
+                       specified_fs=specified_fs)
+ 
+     @staticmethod
+-    def _create_swap(target, swap_mb, context=None):
++    def _create_swap(target, swap_mb, context=None, is_block_dev=False):
+         """Create a swap file of specified size."""
+-        libvirt_utils.create_image('raw', target, '%dM' % swap_mb)
+-        utils.mkfs('swap', target)
++        if not is_block_dev:
++            libvirt_utils.create_image('raw', target, '%dM' % swap_mb)
++        utils.mkfs('swap', target, run_as_root=is_block_dev)
+ 
+     @staticmethod
+     def _get_console_log_path(instance):
+@@ -5334,6 +5345,8 @@ class LibvirtDriver(driver.ComputeDriver):
+                                CONF.libvirt.images_volume_group)
+         elif CONF.libvirt.images_type == 'rbd':
+             info = LibvirtDriver._get_rbd_driver().get_pool_info()
++        elif CONF.libvirt.images_type == 'sio':
++            info = sio_utils.get_pool_info()
+         else:
+             info = libvirt_utils.get_fs_info(CONF.instances_path)
+ 
+@@ -6017,7 +6030,6 @@ class LibvirtDriver(driver.ComputeDriver):
+         if (dest_check_data.obj_attr_is_set('image_type') and
+                 CONF.libvirt.images_type == dest_check_data.image_type and
+                 self.image_backend.backend().is_shared_block_storage()):
+-            # NOTE(dgenin): currently true only for RBD image backend
+             return True
+ 
+         if (dest_check_data.is_shared_instance_path and
+@@ -6850,26 +6862,33 @@ class LibvirtDriver(driver.ComputeDriver):
+                 libvirt_utils.write_to_file(image_disk_info_path,
+                                             jsonutils.dumps(image_disk_info))
+ 
+-            if not is_shared_block_storage:
++            if is_shared_block_storage:
++                if CONF.libvirt.images_type == 'sio':
++                    sio_utils.map_volumes(instance)
++            else:
+                 # Ensure images and backing files are present.
+                 LOG.debug('Checking to make sure images and backing files are '
+                           'present before live migration.', instance=instance)
+                 self._create_images_and_backing(
+                     context, instance, instance_dir, disk_info,
+                     fallback_from_host=instance.host)
+-                if (configdrive.required_by(instance) and
+-                        CONF.config_drive_format == 'iso9660'):
+-                    # NOTE(pkoniszewski): Due to a bug in libvirt iso config
+-                    # drive needs to be copied to destination prior to
+-                    # migration when instance path is not shared and block
+-                    # storage is not shared. Files that are already present
+-                    # on destination are excluded from a list of files that
+-                    # need to be copied to destination. If we don't do that
+-                    # live migration will fail on copying iso config drive to
+-                    # destination and writing to read-only device.
+-                    # Please see bug/1246201 for more details.
+-                    src = "%s:%s/disk.config" % (instance.host, instance_dir)
+-                    self._remotefs.copy_file(src, instance_dir)
++
++            if (configdrive.required_by(instance) and
++                    CONF.config_drive_format == 'iso9660' and
++                    (not is_shared_block_storage or
++                     self._get_disk_config_image_type() !=
++                     CONF.libvirt.images_type)):
++                # NOTE(pkoniszewski): Due to a bug in libvirt iso config
++                # drive needs to be copied to destination prior to
++                # migration when instance path is not shared and block
++                # storage is not shared. Files that are already present
++                # on destination are excluded from a list of files that
++                # need to be copied to destination. If we don't do that
++                # live migration will fail on copying iso config drive to
++                # destination and writing to read-only device.
++                # Please see bug/1246201 for more details.
++                src = "%s:%s/disk.config" % (instance.host, instance_dir)
++                self._remotefs.copy_file(src, instance_dir)
+ 
+             if not is_block_migration:
+                 # NOTE(angdraug): when block storage is shared between source
+@@ -7010,6 +7029,8 @@ class LibvirtDriver(driver.ComputeDriver):
+             disk_info = []
+ 
+         for info in disk_info:
++            if not info['path'].startswith(instance_dir):
++                continue
+             base = os.path.basename(info['path'])
+             # Get image type and create empty disk image, and
+             # create backing file in case of qcow2.
+@@ -7474,6 +7495,8 @@ class LibvirtDriver(driver.ComputeDriver):
+             for info in disk_info:
+                 # assume inst_base == dirname(info['path'])
+                 img_path = info['path']
++                if not img_path.startswith(inst_base):
++                    continue
+                 fname = os.path.basename(img_path)
+                 from_path = os.path.join(inst_base_resize, fname)
+ 
+@@ -7561,6 +7584,9 @@ class LibvirtDriver(driver.ComputeDriver):
+         disk_info = jsonutils.loads(disk_info)
+         for info in disk_info:
+             path = info['path']
++            if not path.startswith(
++                    libvirt_utils.get_instance_path(instance)):
++                continue
+             disk_name = os.path.basename(path)
+ 
+             # NOTE(mdbooth): The code below looks wrong, but is actually
+@@ -7653,6 +7679,8 @@ class LibvirtDriver(driver.ComputeDriver):
+             self._cleanup_failed_migration(inst_base)
+             utils.execute('mv', inst_base_resize, inst_base)
+ 
++        if CONF.libvirt.images_type == 'sio':
++            sio_utils.map_volumes(instance, with_no_wait=True)
+         root_disk = self.image_backend.by_name(instance, 'disk')
+         # Once we rollback, the snapshot is no longer needed, so remove it
+         # TODO(nic): Remove the try/except/finally in a future release
+diff --git a/nova/virt/libvirt/imagebackend.py b/nova/virt/libvirt/imagebackend.py
+index 4b75b00..14ae80c 100644
+--- a/nova/virt/libvirt/imagebackend.py
++++ b/nova/virt/libvirt/imagebackend.py
+@@ -28,6 +28,7 @@ from oslo_utils import strutils
+ from oslo_utils import units
+ import six
+ 
++from nova.compute import task_states
+ import nova.conf
+ from nova import exception
+ from nova.i18n import _
+@@ -41,6 +42,7 @@ from nova.virt.libvirt import config as vconfig
+ from nova.virt.libvirt.storage import dmcrypt
+ from nova.virt.libvirt.storage import lvm
+ from nova.virt.libvirt.storage import rbd_utils
++from nova.virt.libvirt.storage import sio_utils
+ from nova.virt.libvirt import utils as libvirt_utils
+ 
+ CONF = nova.conf.CONF
+@@ -239,11 +241,11 @@ class Image(object):
+         if not self.exists() or not os.path.exists(base):
+             self.create_image(fetch_func_sync, base, size,
+                               *args, **kwargs)
++        else:
++            self.connect_disk()
+ 
+         if size:
+-            # create_image() only creates the base image if needed, so
+-            # we cannot rely on it to exist here
+-            if os.path.exists(base) and size > self.get_disk_size(base):
++            if size > self.get_disk_size(self.path):
+                 self.resize_image(size)
+ 
+             if (self.preallocate and self._can_fallocate() and
+@@ -472,6 +474,13 @@ class Image(object):
+         """
+         pass
+ 
++    def connect_disk(self):
++        """Connect existing disk to the compute host.
++
++        Makes existing instance disk available to use with libvirt.
++        """
++        pass
++
+ 
+ class Flat(Image):
+     """The Flat backend uses either raw or qcow2 storage. It never uses
+@@ -784,6 +793,9 @@ class Lvm(Image):
+     def get_model(self, connection):
+         return imgmodel.LocalBlockImage(self.path)
+ 
++    def get_disk_size(self, name):
++        return lvm.get_volume_size(self.path)
++
+ 
+ class Rbd(Image):
+ 
+@@ -1134,6 +1146,145 @@ class Ploop(Image):
+         return imgmodel.LocalFileImage(self.path, imgmodel.FORMAT_PLOOP)
+ 
+ 
++class Sio(Image):
++
++    def __init__(self, instance=None, disk_name=None, path=None):
++        self._sio_id = None
++        self._sio_name = None
++        self._exists = None
++
++        self.extra_specs = instance.flavor.extra_specs
++        if (instance.task_state == task_states.RESIZE_FINISH):
++            self.orig_extra_specs = instance.get_flavor('old').extra_specs
++        else:
++            self.orig_extra_specs = None
++
++        if path:
++            self.sio_id = path.split('-')[-1]
++            self.sio_name = None
++        else:
++            self.sio_id = None
++            self.sio_name = sio_utils.get_sio_volume_name(instance, disk_name)
++
++        super(Sio, self).__init__(path, "block", "raw", is_block_dev=True)
++
++    @staticmethod
++    def is_shared_block_storage():
++        return True
++
++    @property
++    def sio_id(self):
++        if not self._sio_id:
++            self._sio_id = sio_utils.get_volume_id(self._sio_name)
++        return self._sio_id
++
++    @sio_id.setter
++    def sio_id(self, value):
++        self._sio_id = value
++
++    @property
++    def sio_name(self):
++        if not self._sio_name:
++            self._sio_name = sio_utils.get_volume_name(self._sio_id)
++        return self._sio_name
++
++    @sio_name.setter
++    def sio_name(self, value):
++        self._sio_name = value
++
++    def exists(self):
++        if self._exists is None:
++            if not self._sio_id:
++                self._sio_id = sio_utils.get_volume_id(
++                    self._sio_name, none_if_not_found=True)
++            self._exists = bool(self._sio_id)
++        return self._exists
++
++    def ensure_path(self):
++        if self.path is None:
++            try:
++                self.path = sio_utils.get_volume_path(self.sio_id)
++            except Exception:
++                with excutils.save_and_reraise_exception():
++                    LOG.error('Disk volume %s is not connected',
++                              self.sio_name)
++
++    def create_image(self, prepare_template, base, size, *args, **kwargs):
++        if self.exists():
++            self.connect_disk()
++            return
++
++        generating = 'image_id' not in kwargs
++        # NOTE(ft): We assume that only root disk is recreated in rescue mode.
++        # With this assumption the code becomes more simple and fast.
++        if generating:
++            sio_utils.verify_volume_size(size)
++            self.sio_id = sio_utils.create_volume(self.sio_name, size,
++                                                  self.extra_specs)
++            self.path = sio_utils.map_volume(self.sio_id)
++            prepare_template(target=self.path, is_block_dev=True,
++                             *args, **kwargs)
++        else:
++            if not os.path.exists(base):
++                prepare_template(target=base, *args, **kwargs)
++
++            base_size = disk.get_disk_size(base)
++            if (size is None and
++                    sio_utils.is_sio_volume_rescuer(self.sio_name)):
++                size = sio_utils.choose_volume_size(base_size)
++                self.extra_specs = dict(self.extra_specs)
++                self.extra_specs[sio_utils.PROVISIONING_TYPE_KEY] = 'thin'
++            else:
++                sio_utils.verify_volume_size(size)
++                self.verify_base_size(base, size, base_size=base_size)
++
++            self.sio_id = sio_utils.create_volume(self.sio_name, size,
++                                                  self.extra_specs)
++            self.path = sio_utils.map_volume(self.sio_id)
++            sio_utils.import_image(base, self.path)
++
++    def connect_disk(self):
++        sio_utils.map_volume(self.sio_id, with_no_wait=True)
++        if self.orig_extra_specs is not None:
++            sio_utils.move_volume(
++                self.sio_id, self.sio_name, self.extra_specs,
++                self.orig_extra_specs, is_mapped=True)
++
++    def get_disk_size(self, name):
++        return sio_utils.get_volume_size(self.sio_id)
++
++    def get_model(self, connection):
++        return imgmodel.SIOImage()
++
++    def libvirt_info(self, disk_bus, disk_dev, device_type, cache_mode,
++                     extra_specs, hypervisor_version, boot_order=None,
++                     disk_unit=None):
++        self.ensure_path()
++        return super(Sio, self).libvirt_info(
++            disk_bus, disk_dev, device_type, cache_mode, extra_specs,
++            hypervisor_version, boot_order=boot_order, disk_unit=disk_unit)
++
++    def snapshot_extract(self, target, out_format):
++        self.ensure_path()
++        sio_utils.export_image(self.path, target, out_format)
++
++    def resize_image(self, size):
++        sio_utils.verify_volume_size(size)
++        sio_utils.extend_volume(self.sio_id, size)
++
++    def create_snap(self, name):
++        snap_name = sio_utils.get_sio_snapshot_name(self.sio_name, name)
++        sio_utils.snapshot_volume(self.sio_id, snap_name)
++
++    def remove_snap(self, name, ignore_errors=False):
++        snap_name = sio_utils.get_sio_snapshot_name(self.sio_name, name)
++        sio_utils.remove_volume_by_name(snap_name)
++
++    def rollback_to_snap(self, name):
++        snap_name = sio_utils.get_sio_snapshot_name(self.sio_name, name)
++        sio_utils.rollback_to_snapshot(self.sio_id, self.sio_name, snap_name)
++
++
+ class Backend(object):
+     def __init__(self, use_cow):
+         self.BACKEND = {
+@@ -1143,6 +1294,7 @@ class Backend(object):
+             'lvm': Lvm,
+             'rbd': Rbd,
+             'ploop': Ploop,
++            'sio': Sio,
+             'default': Qcow2 if use_cow else Flat
+         }
+ 
+diff --git a/nova/virt/libvirt/storage/sio_utils.py b/nova/virt/libvirt/storage/sio_utils.py
+new file mode 100644
+index 0000000..cc8b7e2
+--- /dev/null
++++ b/nova/virt/libvirt/storage/sio_utils.py
+@@ -0,0 +1,544 @@
++# Copyright (C) 2017 Dell Inc. or its subsidiaries.
++# All Rights Reserved.
++#
++#    Licensed under the Apache License, Version 2.0 (the "License"); you may
++#    not use this file except in compliance with the License. You may obtain
++#    a copy of the License at
++#
++#         http://www.apache.org/licenses/LICENSE-2.0
++#
++#    Unless required by applicable law or agreed to in writing, software
++#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
++#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
++#    License for the specific language governing permissions and limitations
++#    under the License.
++
++import base64
++import binascii
++
++from oslo_config import cfg
++from oslo_log import log as logging
++from oslo_service import loopingcall
++from oslo_utils import excutils
++from oslo_utils import units
++import six
++
++from nova import exception
++from nova.i18n import _, _LI, _LW
++from nova import utils
++from nova.virt import images
++from nova.virt.libvirt import utils as libvirt_utils
++
++try:
++    import siolib
++except ImportError:
++    siolib = None
++
++LOG = logging.getLogger(__name__)
++CONF = cfg.CONF
++
++VOLSIZE_MULTIPLE_GB = 8
++MAX_VOL_NAME_LENGTH = 31
++PROTECTION_DOMAIN_KEY = 'disk:domain'
++STORAGE_POOL_KEY = 'disk:pool'
++PROVISIONING_TYPE_KEY = 'disk:provisioning_type'
++PROVISIONING_TYPES_MAP = {'thin': 'ThinProvisioned',
++                          'thick': 'ThickProvisioned'}
++NEW_SIZE_CHECK_INTERVAL = 1
++MAX_NEW_SIZE_CHECKS = 10
++# These flavor keys are deprecated
++LEGACY_PROTECTION_DOMAIN_KEY = 'sio:pd_name'
++LEGACY_STORAGE_POOL_KEY = 'sio:sp_name'
++LEGACY_PROVISIONING_TYPE_KEY = 'sio:provisioning_type'
++
++_sdc_guid = None
++
++
++def verify_volume_size(requested_size):
++    """Verify that ScaleIO can have a volume with specified size.
++
++    ScaleIO creates volumes in multiples of 8.
++    :param requested_size: Size in bytes
++    :return: True if the size fit to ScaleIO, False otherwise
++    """
++    if (not requested_size or
++            requested_size % (units.Gi * VOLSIZE_MULTIPLE_GB)):
++        raise exception.NovaException(
++            _('Invalid disk size %s GB for the instance. The correct size '
++              'must be multiple of 8 GB. Choose another flavor') %
++            (requested_size / float(units.Gi)
++             if isinstance(requested_size, int) else
++             requested_size))
++
++
++def choose_volume_size(requested_size):
++    """Choose ScaleIO volume size to fit requested size.
++
++    ScaleIO creates volumes in multiples of 8.
++    :param requested_size: Size in bytes
++    :return: The smallest allowed size in bytes of ScaleIO volume.
++    """
++    k = units.Gi * VOLSIZE_MULTIPLE_GB
++    return int((requested_size + k - 1) / k) * k
++
++
++def get_sio_volume_name(instance, disk_name):
++    """Generate ScaleIO volume name for instance disk.
++
++    ScaleIO restricts volume names to be unique, less than 32 symbols,
++    consist of alphanumeric symbols only.
++    Generated volume names start with a prefix, unique for the instance.
++    This allows one to find all instance volumes among all ScaleIO volumes.
++    :param instane: instance object
++    :param disk_name: disk name (i.e. disk, disk.local, etc)
++    :return: The generated name
++    """
++    sio_name = _uuid_to_base64(instance.uuid)
++    if disk_name.startswith('disk.'):
++        sio_name += disk_name[len('disk.'):]
++    elif disk_name != 'disk':
++        sio_name += disk_name
++    if len(sio_name) > MAX_VOL_NAME_LENGTH:
++        raise RuntimeError(_("Disk name '%s' is too long for ScaleIO") %
++                           disk_name)
++    return sio_name
++
++
++def get_sio_snapshot_name(volume_name, snapshot_name):
++    if snapshot_name == libvirt_utils.RESIZE_SNAPSHOT_NAME:
++        return volume_name + '/~'
++    sio_name = '%s/%s' % (volume_name, snapshot_name)
++    if len(sio_name) > MAX_VOL_NAME_LENGTH:
++        raise RuntimeError(_("Snapshot name '%s' is too long for ScaleIO") %
++                           snapshot_name)
++    return sio_name
++
++
++def is_sio_volume_rescuer(volume_name):
++    return volume_name.endswith('rescue')
++
++
++def get_pool_info():
++    """Return the total storage pool info."""
++
++    used_bytes, total_bytes, free_bytes = (
++        _get_sio_client().storagepool_size(
++            CONF.scaleio.default_protection_domain_name,
++            CONF.scaleio.default_storage_pool_name))
++    return {'total': total_bytes,
++            'free': free_bytes,
++            'used': used_bytes}
++
++
++def create_volume(name, size, extra_specs):
++    """Create a ScaleIO volume.
++
++    :param name: Volume name to use
++    :param size: Size of volume to create
++    :param extra_specs: A dict of instance flavor extra specs
++    :return: ScaleIO id of the created volume
++    """
++    pd_name = _get_protection_domain_name(extra_specs)
++    sp_name = _get_storage_pool_name(extra_specs)
++    ptype = _get_provisioning_type(extra_specs)
++    ptype = PROVISIONING_TYPES_MAP.get(ptype, ptype)
++    vol_id, _name = _get_sio_client().create_volume(
++        name, pd_name, sp_name, ptype, int(size / units.Gi))
++    return vol_id
++
++
++def remove_volume(vol_id, ignore_mappings=False):
++    """Deletes (removes) a ScaleIO volume.
++
++    Removal of a volume erases all the data on the corresponding volume.
++
++    :param vol_id: String ScaleIO volume id remove
++    :param ignore_mappings: Remove even if the volume is mapped to SDCs
++    :return: Nothing
++    """
++    try:
++        _get_sio_client().delete_volume(vol_id,
++                                        unmap_on_delete=ignore_mappings)
++    except siolib.VolumeNotFound:
++        pass
++
++
++def remove_volume_by_name(name, ignore_mappings=False):
++    """Deletes (removes) a ScaleIO volume.
++
++    Removal of a volume erases all the data on the corresponding volume.
++
++    :param name: String ScaleIO volume name to remove
++    :param ignore_mappings: Remove even if the volume is mapped to SDCs
++    :return: Nothing
++    """
++    try:
++        _get_sio_client().delete_volume(name,
++                                        unmap_on_delete=ignore_mappings)
++    except siolib.VolumeNotFound:
++        pass
++
++
++def map_volume(vol_id, with_no_wait=False):
++    """Connect to ScaleIO volume.
++
++    Map ScaleIO volume to local block device
++
++    :param vol_id: String ScaleIO volume id to attach
++    :param with_no_wait: Whether wait for the volume occures in host
++                         device list
++    :return: Local attached volume path
++    """
++    sio_client = _get_sio_client()
++    try:
++        sio_client.attach_volume(vol_id, _get_sdc_guid())
++    except siolib.VolumeAlreadyMapped:
++        pass
++    return sio_client.get_volumepath(vol_id, with_no_wait=with_no_wait)
++
++
++def unmap_volume(vol_id):
++    """Disconnect from ScaleIO volume.
++
++    Unmap ScaleIO volume from local block device
++
++    :param vol_id: String ScaleIO volume id to detach
++    :return: Nothing
++    """
++    try:
++        _get_sio_client().detach_volume(vol_id, _get_sdc_guid())
++    except (siolib.VolumeNotMapped, siolib.VolumeNotFound):
++        pass
++
++
++def check_volume_exists(name):
++    """Check if ScaleIO volume exists.
++
++    :param name: String ScaleIO volume name to check
++    :return: True if the volume exists, False otherwise
++    """
++    return get_volume_id(name, none_if_not_found=True) is not None
++
++
++def get_volume_id(name, none_if_not_found=False):
++    """Return the ScaleIO volume ID
++
++    :param name: String ScaleIO volume name to retrieve id from
++    :param none_if_not_found: If True, handle siolib VolumeNotFound
++                              exception and return None
++    :return: ScaleIO volume id or None if such volume does not exist
++    """
++    try:
++        return _get_sio_client().get_volumeid(name)
++    except siolib.VolumeNotFound:
++        if not none_if_not_found:
++            raise
++        return None
++
++
++def get_volume_name(vol_id):
++    """Return the ScaleIO volume name.
++
++    :param vol_id: String ScaleIO volume id to retrieve name from
++    :return: ScaleIO volume name
++    """
++    return _get_sio_client().get_volumename(vol_id)
++
++
++def get_volume_path(vol_id):
++    """Return the volume device path location.
++
++    :param vol_id: String ScaleIO volume id to get path information about
++    :return: Local attached volume path, None if the volume does not exist
++             or is not connected
++    """
++    try:
++        return _get_sio_client().get_volumepath(vol_id)
++    except siolib.VolumeNotMapped:
++        return None
++
++
++def get_volume_size(vol_id):
++    """Return the size of the ScaleIO volume
++
++    :param vol_id: String ScaleIO volume id to get size of
++    :return: Size of ScaleIO volume
++    """
++    vol_size = _get_sio_client().get_volumesize(vol_id)
++    return vol_size * units.Ki
++
++
++def import_image(source, dest):
++    """Import glance image onto actual ScaleIO block device.
++
++    :param source: Glance image source
++    :param dest: Target ScaleIO block device
++    :return: Nothing
++    """
++    info = images.qemu_img_info(source)
++    images.convert_image(source, dest, info.file_format, 'raw',
++                         run_as_root=True)
++
++
++def export_image(source, dest, out_format):
++    """Export ScaleIO volume.
++
++    :param source: Local attached ScaleIO volume path to export from
++    :param dest: Target path
++    :param out_format: Output format (raw, qcow2, etc)
++    :return: Nothing
++    """
++    images.convert_image(source, dest, 'raw', out_format, run_as_root=True)
++
++
++def extend_volume(vol_id, new_size):
++    """Extend the size of a volume.
++
++    This method is used primarily with openstack resize operation
++
++    :param vol_id: String ScaleIO volume id to extend
++    :param new_size: Size of the volume to extend to
++    :return: Nothing
++    """
++    sio_client = _get_sio_client()
++    sio_client.extend_volume(vol_id, int(new_size / units.Gi))
++    # Wait for new size delivered to host. Otherwise libvirt will provide
++    # old size to guest.
++    vol_path = sio_client.get_volumepath(vol_id, with_no_wait=True)
++    if vol_path:
++
++        @loopingcall.RetryDecorator(max_retry_count=MAX_NEW_SIZE_CHECKS,
++                                    max_sleep_time=NEW_SIZE_CHECK_INTERVAL,
++                                    exceptions=exception.ResizeError)
++        def wait_for_new_size():
++            out, _err = utils.execute('blockdev', '--getsize64', vol_path,
++                                      run_as_root=True)
++            if int(out) != new_size:
++                raise exception.ResizeError(
++                    reason='Size of mapped volume is not changed')
++
++        try:
++            wait_for_new_size()
++        except exception.ResizeError:
++            LOG.warning(
++                _LW('Host system could not get new size of disk %s'),
++                vol_path)
++
++
++def move_volume(vol_id, name, extra_specs, orig_extra_specs, is_mapped=False):
++    """Move a volume to another protection domain or storage pool.
++
++    :param vol_id: String ScaleIO volume id to extend
++    :param name: String ScaleIO volume name to extend
++    :param extra_specs: A dict of instance flavor extra specs
++    :param orig_extra_specs: A dict of original instance flavor extra specs
++    :param is_mapped: If the volume is mapped on the host
++    :return: Nothing
++    """
++
++    if (_get_protection_domain_name(extra_specs) ==
++            _get_protection_domain_name(orig_extra_specs) and
++            _get_storage_pool_name(extra_specs) ==
++            _get_storage_pool_name(orig_extra_specs)):
++        return
++    size = get_volume_size(vol_id)
++    tmp_name = name + '/#'
++    new_id = create_volume(tmp_name, size, extra_specs)
++    sio_client = _get_sio_client()
++    try:
++        sio_client.attach_volume(new_id, _get_sdc_guid())
++        if not is_mapped:
++            sio_client.attach_volume(vol_id, _get_sdc_guid())
++        new_path = sio_client.get_volumepath(new_id)
++        old_path = sio_client.get_volumepath(vol_id)
++        utils.execute('dd',
++                      'if=%s' % old_path,
++                      'of=%s' % new_path,
++                      'bs=1M',
++                      'iflag=direct',
++                      run_as_root=True)
++        sio_client.delete_volume(vol_id, unmap_on_delete=True)
++        if not is_mapped:
++            sio_client.detach_volume(new_id, _get_sdc_guid())
++        sio_client.rename_volume(new_id, name)
++    except Exception:
++        with excutils.save_and_reraise_exception():
++            remove_volume(new_id, ignore_mappings=True)
++
++
++def snapshot_volume(vol_id, snapshot_name):
++    """Snapshot a volume.
++
++    :param vol_id: String ScaleIO volume id make a snapshot
++    :param snapshot_name: String ScaleIO snapshot name to create
++    :return: Nothing
++    """
++    _get_sio_client().snapshot_volume(vol_id, snapshot_name)
++
++
++def rollback_to_snapshot(vol_id, name, snapshot_name):
++    """Rollback a snapshot.
++
++    :param vol_id: String ScaleIO volume id to rollback to a snapshot
++    :param name: String ScaleIO volume name to rollback to a snapshot
++    :param snapshot_name: String ScaleIO snapshot name to rollback to
++    :return: Nothing
++    """
++    sio_client = _get_sio_client()
++    snap_id = sio_client.get_volumeid(snapshot_name)
++    remove_volume(vol_id, ignore_mappings=True)
++    sio_client.rename_volume(snap_id, name)
++    map_volume(snap_id)
++
++
++def map_volumes(instance, with_no_wait=False):
++    """Map all instance volumes to its compute host.
++
++    :param intance: Instance object
++    :return: Nothing
++    """
++    sio_client = _get_sio_client()
++    volumes = sio_client.list_volume_infos(
++        filters={'name_prefix': _uuid_to_base64(instance.uuid)})
++    for volume in volumes:
++        map_volume(volume['id'], with_no_wait=True)
++    if not with_no_wait:
++        for volume in volumes:
++            sio_client.get_volumepath(volume['id'])
++
++
++def cleanup_volumes(instance, unmap_only=False):
++    """Cleanup all instance volumes.
++
++    :param instance: Instance object
++    :param unmap_only: Do not remove, only unmap from the instance host
++    :return: Nothing
++    """
++    volumes = _get_sio_client().list_volume_infos(
++        filters={'name_prefix': _uuid_to_base64(instance.uuid)})
++    for volume in volumes:
++        if unmap_only:
++            unmap_volume(volume['id'])
++        else:
++            remove_volume(volume['id'], ignore_mappings=True)
++
++
++def cleanup_rescue_volumes(instance):
++    """Cleanup instance volumes used in rescue mode.
++
++    :param instance: Instance object
++    :return: Nothing
++    """
++    # NOTE(ft): We assume that only root disk is recreated in rescue mode.
++    # With this assumption the code becomes more simple and fast.
++    rescue_name = _uuid_to_base64(instance.uuid) + 'rescue'
++    remove_volume_by_name(rescue_name, ignore_mappings=True)
++
++
++def _uuid_to_base64(uuid):
++    # This function is copied from Cinder's ScaleIO volume driver
++    name = six.text_type(uuid).replace("-", "")
++    try:
++        name = base64.b16decode(name.upper())
++    except (TypeError, binascii.Error):
++        pass
++    encoded_name = name
++    if isinstance(encoded_name, six.text_type):
++        encoded_name = encoded_name.encode('utf-8')
++    encoded_name = base64.b64encode(encoded_name)
++    if six.PY3:
++        encoded_name = encoded_name.decode('ascii')
++    return encoded_name
++
++
++def _get_protection_domain_name(extra_specs):
++    pd_name = extra_specs.get(PROTECTION_DOMAIN_KEY)
++    if not pd_name:
++        pd_name = extra_specs.get(LEGACY_PROTECTION_DOMAIN_KEY)
++        if pd_name:
++            LOG.warning(
++                _LW("Deprecated '%(legacy_key)s' flavor key is used to "
++                    "specify ScaleIO provisioning type. Please use '%(key)s' "
++                    "instead."),
++                {'legacy_key': LEGACY_PROTECTION_DOMAIN_KEY,
++                 'key': PROTECTION_DOMAIN_KEY})
++        else:
++            pd_name = CONF.scaleio.default_protection_domain_name
++    return pd_name
++
++
++def _get_storage_pool_name(extra_specs):
++    sp_name = extra_specs.get(STORAGE_POOL_KEY)
++    if not sp_name:
++        sp_name = extra_specs.get(LEGACY_STORAGE_POOL_KEY)
++        if sp_name:
++            LOG.warning(
++                _LW("Deprecated '%(legacy_key)s' flavor key is used to "
++                    "specify ScaleIO provisioning type. Please use '%(key)s' "
++                    "instead."),
++                {'legacy_key': LEGACY_STORAGE_POOL_KEY,
++                 'key': STORAGE_POOL_KEY})
++        else:
++            sp_name = CONF.scaleio.default_storage_pool_name
++    return sp_name
++
++
++def _get_provisioning_type(extra_specs):
++    from_config = False
++    ptype = extra_specs.get(PROVISIONING_TYPE_KEY)
++    if not ptype:
++        ptype = extra_specs.get(LEGACY_PROVISIONING_TYPE_KEY)
++        if ptype:
++            LOG.warning(
++                _LW("Deprecated '%(legacy_key)s' flavor key is used to "
++                    "specify ScaleIO provisioning type. Please use '%(key)s' "
++                    "instead."),
++                {'legacy_key': LEGACY_PROVISIONING_TYPE_KEY,
++                 'key': PROVISIONING_TYPE_KEY})
++        else:
++            ptype = CONF.scaleio.default_provisioning_type
++            from_config = True
++    if ptype in ['ThickProvisioned', 'ThinProvisioned']:
++        opt_source = (_('config') if from_config else _('flavor'))
++        value_to_use = {'ThickProvisioned': 'thick',
++                        'ThinProvisioned': 'thin'}[ptype]
++        LOG.warning(
++            _LW("Deprecated provisioning type '%(legacy_type)s' is specified "
++                "in %(source)s. Please change the value to '%(type)s', "
++                "because it will not be supported in next Nova releases."),
++            {'legacy_type': ptype, 'source': opt_source, 'type': value_to_use})
++    return ptype
++
++
++def _get_sdc_guid():
++    global _sdc_guid
++    if not _sdc_guid:
++        if CONF.scaleio.default_sdcguid:
++            _sdc_guid = CONF.scaleio.default_sdcguid
++        else:
++            if CONF.workarounds.disable_rootwrap:
++                drv_cfg = '/opt/emc/scaleio/sdc/bin/drv_cfg'
++            else:
++                drv_cfg = 'drv_cfg'
++            (out, _err) = utils.execute(drv_cfg, '--query_guid',
++                                        run_as_root=True)
++            LOG.info(_LI('Acquire ScaleIO SDC guid %s'), out)
++            _sdc_guid = out
++    return _sdc_guid
++
++
++def _get_sio_client():
++    """Initialize ScaleIODriver object.
++
++    :return: Nothing
++    """
++    if siolib is None:
++        raise RuntimeError(_('ScaleIO python libraries not found'))
++
++    return siolib.ScaleIO(
++        rest_server_ip=CONF.scaleio.rest_server_ip,
++        rest_server_port=CONF.scaleio.rest_server_port,
++        rest_server_username=CONF.scaleio.rest_server_username,
++        rest_server_password=CONF.scaleio.rest_server_password,
++        verify_server_certificate=CONF.scaleio.verify_server_certificate,
++        server_certificate_path=CONF.scaleio.server_certificate_path)
+diff --git a/nova/virt/libvirt/utils.py b/nova/virt/libvirt/utils.py
+index f0d83cf..003ef43 100644
+--- a/nova/virt/libvirt/utils.py
++++ b/nova/virt/libvirt/utils.py
+@@ -409,7 +409,9 @@ def find_disk(guest):
+ 
+ 
+ def get_disk_type_from_path(path):
+-    """Retrieve disk type (raw, qcow2, lvm, ploop) for given file."""
++    """Retrieve disk type (raw, qcow2, lvm, ploop, etc) for given file."""
++    if path.startswith('/dev/disk/by-id/emc-vol'):
++        return 'sio'
+     if path.startswith('/dev'):
+         return 'lvm'
+     elif path.startswith('rbd:'):
