@@ -80,7 +80,7 @@ NUM_ORIG=`find . -name \*.orig | wc -l`
 # remove the rej files created by diff
 NUM_REJ=`find . -name \*.rej | wc -l`
 
-if [ $NUM_ORIG != "0" -o $NUM_REJ != "0" ]; then
+if [ $NUM_REJ != "0" ]; then
   echo "At least one file did not patch perfectly"
   echo "please look for files with a orig or rej extension"
   echo "before proceeding"
@@ -91,6 +91,9 @@ if [ $NUM_ORIG != "0" -o $NUM_REJ != "0" ]; then
   echo
   exit 1
 fi
+
+# remove the orig files created by diff
+find . -name \*.orig -exec rm {} \;
 
 # need to make sure that the parent of DESTDIR exists
 BASEDIR=`dirname "${DESTDIR}"`
