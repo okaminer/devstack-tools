@@ -6,7 +6,7 @@ REPO="https://github.com/openstack/nova.git"
 # temporary directory to work in
 TEMPDIR="/tmp/${ME}-$$"
 # final destionation of code
-DESTDIR=""
+DESTDIR="/opt/stack/nova"
 # BRANCH represents the version of the code we WANT to patch
 BRANCH=""
 # URL to the patch to apply
