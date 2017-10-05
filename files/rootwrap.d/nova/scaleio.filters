@@ -1,3 +1,6 @@
+# scaleio ephemeral filters for compute nodes
+# this file should be owned (and only-writeable) by root
 
+[Filters]
 # nova/virt/libvirt/storage/sio_utils.py: 'partprobe' device_path
 partprobe: CommandFilter, partprobe, root

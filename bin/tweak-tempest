@@ -3,6 +3,9 @@
 # This script tweaks the tempest config files slightly
 # this helps account for settings that may not be exposed via devstack
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" && pwd )"
+
 function set_value_if_unset {
   local file=$1
   local section=$2
@@ -64,6 +67,12 @@ else
    restart_service "g-reg"
 fi
 
+# make sure that partprobe is included in the rootwrap filters
+NOVA_ROOTWRAP="/etc/nova/rootwrap.d/scaleio.filters"
+if [ ! -f "${NOVA_ROOTWRAP}" ]; then
+  sudo cp "${PROJECT_DIR}/files/rootwrap.d/nova/scaleio.filters" "${NOVA_ROOTWRAP}"
+  restart_service "n-cpu"
+fi
 
 # make the necessary flavors
 # scaleio image backend only supports disks in multiples of 8GB
