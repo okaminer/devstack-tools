@@ -304,19 +304,8 @@ if [ "${EPHEMERAL}" == "True" ]; then
     # install siolib from pypi
     pip install siolib
   else
-    # install from pypi
+    # install version BEFORE 2.0 from pypi
     pip install 'siolib<2'
-
-    ## install siolib from github
-    ## little trick here, install all the nova pip dependencies first
-    #git clone "${NOVA_REPO}" -b "${NOVA_BRANCH}" /git/nova-temp
-    #cd /git/nova-temp
-    #pip install -r requirements.txt
-    #cd /git
-    #rm -rf nova-temp
-
-    #cd /git && git clone https://github.com/codedellemc/python-scaleioclient -b newton
-    #pip install python-scaleioclient/
   fi
 
   # change the local.conf file to support the ephemeral patch
