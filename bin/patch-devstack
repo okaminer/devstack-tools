@@ -4,7 +4,7 @@
 
 TEMPDIR="/tmp/$$"
 PATCHURL="https://review.openstack.org/changes/492651/revisions/a3488d5f0067b570974c14572c58bbf8cedf7ed2/patch?zip"
-PATCHFILE="patch-%%"
+PATCHFILE="patch-$$"
 PATCHDIR="/git/devstack"
 
 if [ - "${TEMPDIR}" ]; then
@@ -16,7 +16,9 @@ cd "${TEMPDIR}"
 
 wget "${PATCHURL}" -O "${PATCHFILE}"
 unzip "${PATCHFILE}"
+rm "${PATCHFILE}"
 
 cd "${PATCHDIR}"
-patch -p1 -i "${TEMPDIR}/a3488d5.diff"
-
+for p in "${TEMPDIR}"/*.diff; do
+  patch -p1 -i "${p}"
+done
