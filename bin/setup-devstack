@@ -302,10 +302,10 @@ if [ "${EPHEMERAL}" == "True" ]; then
 
   if [ "${OPENSTACK_RELEASE}" == "master" ]; then
     # install siolib from pypi
-    pip install siolib
+    pip install 'siolib>=2.0.0b4'
   else
     # install version BEFORE 2.0 from pypi
-    pip install 'siolib<2'
+    pip install 'siolib==1.6.5'
   fi
 
   # change the local.conf file to support the ephemeral patch
