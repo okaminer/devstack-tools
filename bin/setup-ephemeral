@@ -1,0 +1,39 @@
+#!/bin/bash
+#
+# Script to setup devstack to use scaleio for ephemeral volumes
+#
+# Ubuntu 16.04      Tested and working
+# CentOS 7          Experimental support
+#
+# Requires arguments:
+#    1) the devstack branc t configure for
+
+BRANCH=""
+if [ ! -z "${1}" ]; then
+  BRANCH="${1}"
+else
+  echo "Error: You must specify the devstack branch as a parameter"
+  echo "For example:"
+  echo "   ${0} stable/pike"
+  echo "   ${0} master"
+  exit 1
+fi
+
+# Make sure only root can run our script
+if [ "$(id -u)" != "0" ]; then
+   echo "This script must be run as root" 1>&2
+   exit 1
+fi
+
+if [ "${OPENSTACK_RELEASE}" == "master" ]; then
+  # install siolib from pypi
+  pip install 'siolib>=2.0.0b4'
+else
+  # install version BEFORE 2.0 from pypi
+  pip install 'siolib==1.6.5'
+fi
+
+# change the local.conf file to support the ephemeral patch
+sed -i -e "s|## images_type=sio|images_type=sio|g" /git/devstack/local.conf
+sed -i -e "s|## flavor_ref = .*|flavor_ref = 100|g" /git/devstack/local.conf
+sed -i -e "s|## flavor_ref_alt = .*|flavor_ref_alt = 101|g" /git/devstack/local.conf
