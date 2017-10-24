@@ -56,17 +56,6 @@ set_value_if_unset "${TEMPEST_CONF}" compute-feature-enabled live_migrate_back_a
 set_value_if_unset "${TEMPEST_CONF}" compute-feature-enabled block_migration_for_live_migration False
 set_value_if_unset "${TEMPEST_CONF}" compute-feature-enabled live_migration True
 
-if [ ! -f "${GLANCE_UWSGI_CONF}" ]; then
-   echo "The glance wsgi config file does not seem to exist!"
-   exit 1
-else
-   # set the socket-timeout (workaround for pike and )
-   # https://bugs.launchpad.net/glance/+bug/1703856
-   iniset "${GLANCE_UWSGI_CONF}" "uwsgi" "socket-timeout" "600"
-   restart_service "g-api"
-   restart_service "g-reg"
-fi
-
 # make sure that partprobe is included in the rootwrap filters
 NOVA_ROOTWRAP="/etc/nova/rootwrap.d/scaleio.filters"
 if [ ! -f "${NOVA_ROOTWRAP}" ]; then

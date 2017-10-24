@@ -74,4 +74,13 @@ if [ -f "${TEMPEST_CONF}" ]; then
    sudo sed -i -e "s|^image_ref = .*|image_ref = ${TEMPEST_IMAGE}|g" "${TEMPEST_CONF}"
 fi
 
-echo "All done. You should wait a while before using the images so that the data copying can complete"
+# download the image to make sure it got created
+TEMP_IMAGE="/tmp/image-$$"
+openstack image save --file "${TEMP_IMAGE}" "${TEMPEST_IMAGE}"
+if [ ! -f "${TEMP_IMAGE}" ]; then
+  echo "Unable to download the image, check the system"
+else
+  rm "${TEMP_IMAGE}"
+fi
+
+echo "All done."
