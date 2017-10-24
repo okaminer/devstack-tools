@@ -42,7 +42,7 @@ sudo cp "${PROJECT_DIR}/files/glance/${OPENSTACK_RELEASE}/glance_sudoers" "/etc/
 sudo cp "${PROJECT_DIR}/files/glance/${OPENSTACK_RELEASE}/glance_rootwrap.conf" "/etc/glance/rootwrap.conf"
 sudo cp "${PROJECT_DIR}/files/glance/${OPENSTACK_RELEASE}/scaleio.glance.filters" "/etc/glance/rootwrap.d"
 
-iniset "/etc/glance/glance-api.conf" "glance_store" "store" "cinder"
+iniset "/etc/glance/glance-api.conf" "glance_store" "stores" "cinder"
 iniset "/etc/glance/glance-api.conf" "glance_store" "default_store" "cinder"
 iniset "/etc/glance/glance-api.conf" "DEFAULT" "show_image_direct_url" "True"
 iniset "/etc/glance/glance-api.conf" "DEFAULT" "show_multiple_locations" "True"
@@ -65,5 +65,13 @@ do
     rm "${NAME}.${IMAGE_EXT}"
   fi
 done < <(echo "${CURRENT_IMAGES}")
+
+TEMPEST_CONF="/opt/stack/tempest/etc/tempest.conf"
+if [ -f "${TEMPEST_CONF}" ]; then
+   # get the first cirros image and use it...
+   TEMPEST_IMAGE=`openstack image list -f csv --long --quote minimal | grep cirros | head -n 1 | awk -F',' '{print$1}'`
+   sudo sed -i -e "s|^image_ref_alt = .*|image_ref_alt = ${TEMPEST_IMAGE}|g" "${TEMPEST_CONF}"
+   sudo sed -i -e "s|^image_ref = .*|image_ref = ${TEMPEST_IMAGE}|g" "${TEMPEST_CONF}"
+fi
 
 echo "All done. You should wait a while before using the images so that the data copying can complete"
