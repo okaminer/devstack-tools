@@ -7,6 +7,16 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" && pwd )"
 IMAGE_EXT="$$"
 
+DEVSTACK_DIR=${DEVSTACK_DIR:-/git/devstack}
+if [ ! -d "${DEVSTACK_DIR}" ]; then
+  echo "Unable to find the devstack directory"
+  echo "Please export it as the DEVSTACK_DIR environment variable"
+  exit 1
+fi
+
+# devstack contains some handy code to manipulate ini files
+source "${DEVSTACK_DIR}/inc/ini-config"
+
 CURRENT_IMAGES=`openstack image list -f csv --long --quote minimal`
 
 # remove the existing images
@@ -31,8 +41,11 @@ fi
 sudo cp "${PROJECT_DIR}/files/glance/${OPENSTACK_RELEASE}/glance_sudoers" "/etc/sudoers.d"
 sudo cp "${PROJECT_DIR}/files/glance/${OPENSTACK_RELEASE}/glance_rootwrap.conf" "/etc/glance/rootwrap.conf"
 sudo cp "${PROJECT_DIR}/files/glance/${OPENSTACK_RELEASE}/scaleio.glance.filters" "/etc/glance/rootwrap.d"
-sudo sed -i -e "s|^#stores.*|stores=cinder|g" /etc/glance/glance-api.conf
-sudo sed -i -e "s|^#default_store.*|default_store=cinder|g" /etc/glance/glance-api.conf
+
+iniset "/etc/glance/glance-api.conf" "glance_store" "store" "cinder"
+iniset "/etc/glance/glance-api.conf" "glance_store" "default_store" "cinder"
+iniset "/etc/glance/glance-api.conf" "DEFAULT" "show_image_direct_url" "True"
+iniset "/etc/glance/glance-api.conf" "DEFAULT" "show_multiple_locations" "True"
 
 echo "Restarting glance-api"
 sudo systemctl restart devstack@g-api
@@ -53,16 +66,4 @@ do
   fi
 done < <(echo "${CURRENT_IMAGES}")
 
-# now, manipulate the tempest.conf file
-TEMPEST_CONF="/opt/stack/tempest/etc/tempest.conf"
-if [ -f "${TEMPEST_CONF}" ]; then
-   # get the first cirros image and use it...
-   TEMPEST_IMAGE=`openstack image list -f csv --long --quote minimal | grep cirros | head -n 1 | awk -F',' '{print$1}'`
-   sudo sed -i -e "s|^image_ref_alt = .*|image_ref_alt = ${TEMPEST_IMAGE}|g" "${TEMPEST_CONF}"
-   sudo sed -i -e "s|^image_ref = .*|image_ref = ${TEMPEST_IMAGE}|g" "${TEMPEST_CONF}"
-fi
-
 echo "All done. You should wait a while before using the images so that the data copying can complete"
-
-
-

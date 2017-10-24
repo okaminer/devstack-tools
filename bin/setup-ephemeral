@@ -6,7 +6,7 @@
 # CentOS 7          Experimental support
 #
 # Requires arguments:
-#    1) the devstack branc t configure for
+#    1) the devstack branch to configure for
 
 BRANCH=""
 if [ ! -z "${1}" ]; then
