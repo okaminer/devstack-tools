@@ -28,10 +28,14 @@ do
     continue
   fi
   echo "Downloading $IMAGE as $NAME.${IMAGE_EXT}"
-  glance image-download --file "${NAME}.${IMAGE_EXT}" "${IMAGE}"
+  glance image-download --file "${NAME}.tmp.${IMAGE_EXT}" "${IMAGE}"
+  if [ -f "${NAME}.tmp.${IMAGE_EXT}" ]; then
+     qemu-img convert -O raw "${NAME}.tmp.${IMAGE_EXT}" "${NAME}.${IMAGE_EXT}" && rm "${NAME}.tmp.${IMAGE_EXT}"
+  fi
   echo "Deleting image: $IMAGE"
   openstack image delete $IMAGE
 done < <(echo "${CURRENT_IMAGES}")
+
 
 # setup cinder as backend to Glance
 pip install python-cinderclient os-brick oslo.rootwrap
@@ -59,7 +63,7 @@ do
     echo "Uploading $NAME.image as $NAME"
     openstack image create --public \
                            --container-format bare \
-                           --disk-format qcow2 \
+                           --disk-format raw \
                            --file "${NAME}.${IMAGE_EXT}" \
                            "${NAME}"
     rm "${NAME}.${IMAGE_EXT}"
