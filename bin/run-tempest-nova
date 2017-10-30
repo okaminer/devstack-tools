@@ -15,6 +15,12 @@ DISABLED_TESTS="$DISABLED_TESTS(?!.*novnc)"
 DISABLED_TESTS="$DISABLED_TESTS(?!.*test_create_backup)"
 TEST="^tempest.api.compute.(admin.test_live_migration|admin.test_migrations|admin.test_servers.|admin.test_servers_negative|images.test_images.ImagesTestJSON.test_create_image_from_stopped_server|servers)${DISABLED_TESTS}"
 
+if [ ! -z "${1}" ]; then
+   TEST="${1}"
+fi
+
+echo "Running tests: ${TEST}"
+
 # ensure the directory exists
 if [ ! -d "${DIRECTORY}" ]; then
    echo "The tempest directory does not seem to exist!"

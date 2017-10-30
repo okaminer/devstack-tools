@@ -15,6 +15,11 @@ DISABLED_TESTS="$DISABLED_TESTS(?!.*test_stamp_pattern)"
 DISABLED_TESTS="$DISABLED_TESTS(?!.*test_extend_attached_volume)"
 TEST="^(?=.*volume)${DISABLED_TESTS}.*"
 
+if [ ! -z "${1}" ]; then
+   TEST="${1}"
+fi
+
+echo "Running tests: ${TEST}"
 
 # ensure the directory exists
 if [ ! -d "${DIRECTORY}" ]; then
