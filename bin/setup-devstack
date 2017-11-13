@@ -250,8 +250,22 @@ elif [ "${VARIANT}" == "CentOS" ]; then
   echo "net.ipv6.conf.default.disable_ipv6 = 1" >> /etc/sysctl.conf
   sysctl -p
 fi
+
 #
 # Now setup the ScaleIO SDC
+# determine which version of ScaleIO we are talking to
+SIOVERSION=`curl -k -m 5 https://${CINDER_SIO_GATEWAY}:${CINDER_SIO_GATEWAYPORT}/api/version 2>/dev/null`
+# by default, install the oldest version
+RPMVERSION="2.0"
+case "${SIOVERSION}" in
+  *2.0*) RPMVERSION="2.0";;
+  *2.5*) RPMVERSION="2.5";;
+  *3.0*) RPMVERSION="3.0";;
+esac
+# for now, however, always install 2.0
+RPMVERSION="2.0"
+echo "Forcing installation of the SDC for ScaleIO ${RPMVERSION}..."
+
 export MDM_IP="${CINDER_SIO_MDM_IPS}"
 
 echo "Installing ScaleIO client (SDC)"
@@ -262,7 +276,7 @@ if [ "${VARIANT}" == "Ubuntu" ]; then
   apt-get install -y libaio1
   echo "installing SDC"
   cd "${PROJECT_DIR}/scaleio"
-  tar -xvf  EMC-ScaleIO-sdc-2.0-12000.122.Ubuntu.${UBUNTU_VERSION}.x86_64.tar
+  tar -xvf  EMC-ScaleIO-sdc-${RPMVERSION}*${UBUNTU_VERSION}.x86_64.tar
   ./siob_extract EMC-*.siob
   dpkg -i EMC-*.deb
   # copy in the scaleio scini update config file
@@ -276,7 +290,7 @@ elif [ "${VARIANT}" == "CentOS" ]; then
   echo "Installing dependencies"
   yum install -y libaio
   echo "installing SDC"
-  rpm -U "${PROJECT_DIR}/scaleio/EMC*.rpm"
+  rpm -U "${PROJECT_DIR}/scaleio/EMC-ScaleIO-sdc-${RPMVERSION}*el7.x86_64.rpm"
 fi
 
 SDCGUID=`/bin/emc/scaleio/drv_cfg --query_guid`
