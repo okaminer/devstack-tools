@@ -1,0 +1,106 @@
+#!/bin/bash
+#
+# script meant to test out functinality of ScaleIO Cinder Driver
+#
+# This script tests the creation of volumes from images
+
+# command line operations
+CREATE="false"
+DELETE="false"
+
+CMD_OPTS="--os-username admin --os-tenant-name admin"
+
+# Volume Types
+SIO_VOLUME_TYPE="ScaleIO-Thin-from-Image"
+NUM_VOLUMES=5
+IMAGE=""
+
+function setup {
+  # set the quota on volumes to some high level
+  TOTAL_VOLUMES=$((5*$NUM_VOLUMES))
+  echo "Settng volume quota on project '${OS_PROJECT_NAME}' to: $TOTAL_VOLUMES"
+  openstack quota set --volumes ${TOTAL_VOLUMES} ${OS_PROJECT_NAME}
+}
+
+function show-volume-types {
+  openstack volume type list
+}
+
+function create-volume-types {
+  # thin
+  openstack volume type create "${SIO_VOLUME_TYPE}" $CMD_OPTS
+  openstack volume type set --property volume_backend_name=scaleio "${SIO_VOLUME_TYPE}" $CMD_OPTS
+  openstack volume type set --property provisioning:type=thin "${SIO_VOLUME_TYPE}" $CMD_OPTS
+}
+
+function delete-volume-types {
+
+  # thin
+  openstack volume type delete "${SIO_VOLUME_TYPE}" $CMD_OPTS
+}
+
+# create some volumes
+# NOTE: SCaleIO created volumes in size multiples of 8GB, asking for 1GB gets you 8GB
+#
+function create-volumes {
+  # thin
+  for a in $(seq $NUM_VOLUMES); do
+    openstack volume create --type "${SIO_VOLUME_TYPE}" --size 1 --image "${IMAGE}" volume-image-$a
+  done
+}
+
+function delete-volumes {
+  # iterate through all the types and delete all the volumes
+  for T in "${SIO_VOLUME_TYPE}"; do
+    echo "Looking for volumes of type: ${T}"
+    # the thin volumes
+    while read line
+    do
+      # openstack volume delete thin-volume
+      VOL=`echo "${line}" | awk -F',' '{print $1}'`
+      echo "Deleting ${T} volume: $VOL"
+      openstack volume delete $VOL
+    done < <(openstack volume list -f csv --long --quote minimal | grep "${T}")
+  done
+}
+
+
+
+#
+# Main script logic starts here
+#
+while getopts "cdi:n:" opt; do
+  case $opt in
+    c)
+      CREATE="true"
+      ;;
+    d)
+      DELETE="true"
+      ;;
+    i)
+      IMAGE="${OPTARG}"
+      ;;
+    n)
+      NUM_VOLUMES="${OPTARG}"
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument." >&2
+      exit 1
+      ;;
+  esac
+done
+
+echo "Creating ${NUM_VOLUMES} volumes from ${IMAGE}"
+
+if [ "${CREATE}" == "true" ]; then
+  setup
+  create-volume-types
+  show-volume-types
+  create-volumes
+fi
+
+
+if [ "${DELETE}" == "true" ]; then
+  delete-volumes
+  delete-volume-types
+fi
