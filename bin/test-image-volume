@@ -7,6 +7,7 @@
 # command line operations
 CREATE="false"
 DELETE="false"
+WAIT="false"
 
 CMD_OPTS="--os-username admin --os-tenant-name admin"
 
@@ -76,18 +77,32 @@ function delete-volumes {
   done
 }
 
+function wait-for-volume-availability {
+  
+  NUM=`openstack volume list -f csv | grep volume-image- | egrep -v 'available|error' | wc -l`
+  while [ "${NUM}" != "0" ]; do
+    echo -ne "Waiting for ${NUM} Volumes to become available  "\\r
+    sleep 1
+    NUM=`openstack volume list -f csv | grep volume-image- | egrep -v 'available|error' | wc -l`
+  done 
+
+  echo ""
+}
 
 
 #
 # Main script logic starts here
 #
-while getopts "cdi:n:" opt; do
+while getopts "cdi:n:w" opt; do
   case $opt in
     c)
       CREATE="true"
       ;;
     d)
       DELETE="true"
+      ;;
+    w)
+      WAIT="true"
       ;;
     i)
       IMAGE="${OPTARG}"
@@ -102,13 +117,16 @@ while getopts "cdi:n:" opt; do
   esac
 done
 
-echo "Creating ${NUM_VOLUMES} volumes from ${IMAGE}"
 
 if [ "${CREATE}" == "true" ]; then
+  echo "Creating ${NUM_VOLUMES} volumes from ${IMAGE}"
   setup
   create-volume-types
   show-volume-types
   create-volumes
+  if [ "${WAIT}" == "true" ]; then
+    wait-for-volume-availability
+  fi
 fi
 
 
