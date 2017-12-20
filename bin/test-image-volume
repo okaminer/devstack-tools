@@ -18,8 +18,11 @@ IMAGE=""
 function setup {
   # set the quota on volumes to some high level
   TOTAL_VOLUMES=$((5*$NUM_VOLUMES))
-  echo "Settng volume quota on project '${OS_PROJECT_NAME}' to: $TOTAL_VOLUMES"
-  openstack quota set --volumes ${TOTAL_VOLUMES} ${OS_PROJECT_NAME}
+  #echo "Settng volume quota on project '${OS_PROJECT_NAME}' to: $TOTAL_VOLUMES"
+  # openstack quota set --volumes ${TOTAL_VOLUMES} ${OS_PROJECT_NAME}
+  openstack quota set --volumes -1 ${OS_PROJECT_NAME}
+  openstack quota set --gigabytes -1 ${OS_PROJECT_NAME}
+ 
 }
 
 function show-volume-types {
@@ -45,7 +48,7 @@ function delete-volume-types {
 function create-volumes {
   # thin
   for a in $(seq $NUM_VOLUMES); do
-    openstack volume create --type "${SIO_VOLUME_TYPE}" --size 1 --image "${IMAGE}" volume-image-$a
+    openstack volume create --type "${SIO_VOLUME_TYPE}" --size 8 --image "${IMAGE}" volume-image-$a-$$
   done
 }
 
@@ -58,9 +61,18 @@ function delete-volumes {
     do
       # openstack volume delete thin-volume
       VOL=`echo "${line}" | awk -F',' '{print $1}'`
-      echo "Deleting ${T} volume: $VOL"
+      echo "Deleting volume: $VOL"
       openstack volume delete $VOL
     done < <(openstack volume list -f csv --long --quote minimal | grep "${T}")
+
+    # now delete with "--all-projects" to get the image-volumes in cache
+    while read line
+    do
+      # openstack volume delete thin-volume
+      VOL=`echo "${line}" | awk -F',' '{print $1}'`
+      echo "Deleting image-volume: $VOL"
+      openstack volume delete $VOL
+    done < <(openstack volume list --all-projects -f csv --long --quote minimal | grep "${T}")
   done
 }
 
