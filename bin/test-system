@@ -22,13 +22,13 @@ CMD_OPTS="--os-username admin --os-tenant-name admin"
 # Volume Types
 SIO_VOLUME_TYPE_THIN="ScaleIO-Thin"
 SIO_VOLUME_TYPE_THICK="ScaleIO-Thick"
-NUM_VOLUMES=5
+SIO_VOLUME_TYPE_SNAPSHOT_SOURCE="ScaleIO-Snapshot-Source"
+NUM_VOLUMES=2
+NUM_SNAPSHOTS=10
 
 function setup {
-  # set the quota on volumes to some high level
-  TOTAL_VOLUMES=$((5*$NUM_VOLUMES))
-  echo "Settng volume quota on project '${OS_PROJECT_NAME}' to: $TOTAL_VOLUMES"
-  openstack quota set --volumes ${TOTAL_VOLUMES} ${OS_PROJECT_NAME}
+  openstack quota set --volumes -1 ${OS_PROJECT_NAME}
+  openstack quota set --snapshots -1 ${OS_PROJECT_NAME}
 }
 
 function show-volume-types {
@@ -47,6 +47,10 @@ function create-volume-types {
   openstack volume type set --property volume_backend_name=scaleio "${SIO_VOLUME_TYPE_THICK}" $CMD_OPTS
   openstack volume type set --property provisioning:type=thick "${SIO_VOLUME_TYPE_THICK}" $CMD_OPTS
 
+  # snapshot type
+  openstack volume type create "${SIO_VOLUME_TYPE_SNAPSHOT_SOURCE}" $CMD_OPTS
+  openstack volume type set --property volume_backend_name=scaleio "${SIO_VOLUME_TYPE_SNAPSHOT_SOURCE}" $CMD_OPTS
+  openstack volume type set --property provisioning:type=thick "${SIO_VOLUME_TYPE_SNAPSHOT_SOURCE}" $CMD_OPTS
 }
 
 function delete-volume-types {
@@ -55,6 +59,8 @@ function delete-volume-types {
   openstack volume type delete "${SIO_VOLUME_TYPE_THIN}" $CMD_OPTS
   # thick
   openstack volume type delete "${SIO_VOLUME_TYPE_THICK}" $CMD_OPTS
+  # snapshot
+  openstack volume type delete "${SIO_VOLUME_TYPE_SNAPSHOT_SOURCE}" $CMD_OPTS
 
 }
 
@@ -73,9 +79,16 @@ function create-volumes {
   done
 }
 
+function create-snapshots {
+  openstack volume create --type "${SIO_VOLUME_TYPE_SNAPSHOT_SOURCE}" --size 8 snapshot-source
+  for a in $(seq $NUM_SNAPSHOTS); do
+    openstack volume snapshot create --volume snapshot-source snapshot-$a
+  done
+}
+
 function delete-volumes {
   # iterate through all the types and delete all the volumes
-  for T in "${SIO_VOLUME_TYPE_THIN}" "${SIO_VOLUME_TYPE_THICK}"; do
+  for T in "${SIO_VOLUME_TYPE_SNAPSHOT_SOURCE}" "${SIO_VOLUME_TYPE_THIN}" "${SIO_VOLUME_TYPE_THICK}"; do
     echo "Looking for volumes of type: ${T}"
     # the thin volumes
     while read line
@@ -88,7 +101,17 @@ function delete-volumes {
   done
 }
 
-
+function delete-snapshots {
+  # iterate through and delete all the snapshots
+  echo "Looking for snapshots"
+  while read line
+  do
+    # openstack volume delete thin-volume
+    SNAP=`echo "${line}" | awk -F',' '{print $1}'`
+    echo "Deleting snapshot: $SNAP"
+    openstack volume snapshot delete $SNAP
+  done < <(openstack volume snapshot list -f csv --long --quote minimal)
+} 
 
 #
 # Main script logic starts here
@@ -114,10 +137,12 @@ if [ "${CREATE}" == "true" ]; then
   create-volume-types
   show-volume-types
   create-volumes
+  create-snapshots
 fi
 
 
 if [ "${DELETE}" == "true" ]; then
+  delete-snapshots
   delete-volumes
   delete-volume-types
 fi
