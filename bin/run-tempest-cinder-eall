@@ -1,0 +1,55 @@
+#!/bin/bash
+#
+# This script simply runs tempest
+
+# set the directory where the code is
+DIRECTORY="/opt/stack/tempest"
+ME=`basename "${0}"`
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" && pwd )"
+CRUDINI=`which crudini`
+LOGFILE="/tmp/${ME}.log"
+# TEST='^(?=.*volume)(?!.*test_stamp_pattern).*'
+
+DISABLED_TESTS="$DISABLED_TESTS(?!.*test_stamp_pattern)"
+DISABLED_TESTS="$DISABLED_TESTS(?!.*test_extend_attached_volume)"
+TEST="^(?=.*volume)${DISABLED_TESTS}.*"
+
+if [ ! -z "${1}" ]; then
+   TEST="${1}"
+fi
+
+echo "Running tests: ${TEST}"
+
+# ensure the directory exists
+if [ ! -d "${DIRECTORY}" ]; then
+   echo "The tempest directory does not seem to exist!"
+   exit 1
+fi
+
+# we need to make sure that some environment variables are set so that
+# we can create the necessary flavors used in testing (username, auth_url)
+if [ -z "${OS_USERNAME}" -o -z "${OS_AUTH_URL}" ]; then
+  echo "Source the openrc file in the devstack directory before running this script"
+  exit 1
+fi
+
+"${PROJECT_DIR}/bin/tweak-tempest"
+if [ $? -ne 0 ]; then
+  echo "Error configuring tempest"
+  exit 1
+fi
+
+# cd to the directory
+cd "${DIRECTORY}"
+
+# make the necessary flavors
+# scaleio image backend only supports disks in multiples of 8GB
+openstack flavor create TEMPEST_REF --id 100 --ram 512 --disk 8 --vcpus 1
+openstack flavor create TEMPEST_REF_ALT --id 101 --ram 512 --disk 16 --vcpus 1
+
+# run tempest
+# tox -eall -- "${TEST}" --concurrency=1 | tee "${LOGFILE}"
+tox -eall-plugin -- volume --concurrency=1 | tee "${LOGFILE}"
+
+echo "output was sent to ${LOGFILE}"
