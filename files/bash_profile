@@ -5,7 +5,8 @@ if [ -d "/git/utilities/bin" ]; then
   export PATH=$PATH:/git/utilities/bin
 fi
 
-DEVSTACK_ENV="/git/devstack.environment"
+export DEVSTACK_ENV="/git/devstack.environment"
+export UPPER_CONSTRAINTS_FILE="http://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt"
 
 # if the devstack environent exists...
 if [ -f "${DEVSTACK_ENV}" ]; then
