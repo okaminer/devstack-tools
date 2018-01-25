@@ -41,11 +41,13 @@ function create-volume-types {
   openstack volume type create "${SIO_VOLUME_TYPE_THIN}" $CMD_OPTS
   openstack volume type set --property volume_backend_name=scaleio "${SIO_VOLUME_TYPE_THIN}" $CMD_OPTS
   openstack volume type set --property provisioning:type=thin "${SIO_VOLUME_TYPE_THIN}" $CMD_OPTS
+  openstack volume type set --property multiattach="<is> True" "${SIO_VOLUME_TYPE_THIN}" $CMD_OPTS
 
   # thick
   openstack volume type create "${SIO_VOLUME_TYPE_THICK}" $CMD_OPTS
   openstack volume type set --property volume_backend_name=scaleio "${SIO_VOLUME_TYPE_THICK}" $CMD_OPTS
   openstack volume type set --property provisioning:type=thick "${SIO_VOLUME_TYPE_THICK}" $CMD_OPTS
+  openstack volume type set --property multiattach="<is> True" "${SIO_VOLUME_TYPE_THICK}" $CMD_OPTS
 
   # snapshot type
   openstack volume type create "${SIO_VOLUME_TYPE_SNAPSHOT_SOURCE}" $CMD_OPTS
