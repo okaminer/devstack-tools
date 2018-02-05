@@ -57,6 +57,8 @@ SIO_PASSWORD=${SIO_PASSWORD:-Scaleio123}
 CINDER_SIO_GATEWAYPORT=${CINDER_SIO_GATEWAYPORT:-443}
 # verify certs or not, default is false
 VERIFYCERTS=${VERIFYCERTS:-False}
+# URL to retrieve the SDC install bits from
+SDC_LOCATION=${SDC_LOCATION:""}
 
 function usage {
   echo
@@ -139,6 +141,22 @@ fi
 
 #
 # check what operating system I am on
+VARIANT=""
+if [ -f "/etc/centos-release" ]; then
+  VARIANT="CentOS"
+fi
+if [ -f "/etc/lsb-release" ]; then
+  VARIANT="Ubuntu"
+  OS_VER="16.04"
+fi
+if [ -f "/etc/SuSE-release" ]; then
+  VARIANT="SuSE"
+fi
+if [ -f "/etc/redhat-release" ]; then
+  VARIANT="RedHat"
+fi
+
+
 VARIANT=`lsb_release -si`
 UBUNTU_VERSION=""
 if [ -z "${VARIANT}" ]; then
@@ -253,45 +271,51 @@ fi
 
 #
 # Now setup the ScaleIO SDC
-# determine which version of ScaleIO we are talking to
-SIOVERSION=`curl -k -m 5 https://${CINDER_SIO_GATEWAY}:${CINDER_SIO_GATEWAYPORT}/api/version 2>/dev/null`
-# by default, install the oldest version
-RPMVERSION="2.0"
-case "${SIOVERSION}" in
-  *2.0*) RPMVERSION="2.0";;
-  *2.5*) RPMVERSION="2.5";;
-  *3.0*) RPMVERSION="3.0";;
-esac
-# for now, however, always install 2.0
-RPMVERSION="2.0"
-echo "Forcing installation of the SDC for ScaleIO ${RPMVERSION}..."
+if [ -z "${SDC_LOCATION}" ]; then
+  # determine which version of ScaleIO we are talking to
+  SIOVERSION=`curl -k -m 5 https://${CINDER_SIO_GATEWAY}:${CINDER_SIO_GATEWAYPORT}/api/version 2>/dev/null`
+  # by default, install the oldest version
+  RPMVERSION="2.0"
+  case "${SIOVERSION}" in
+    *2.0*) RPMVERSION="2.0";;
+    *2.5*) RPMVERSION="2.5";;
+    *3.0*) RPMVERSION="3.0";;
+  esac
 
-export MDM_IP="${CINDER_SIO_MDM_IPS}"
+  echo "Installing SDC for ScaleIO ${SIOVERSION} (${RPMVERSION})..."
 
-echo "Installing ScaleIO client (SDC)"
-if [ "${VARIANT}" == "Ubuntu" ]; then
-  echo "Installing ScaleIO SDC.. for Ubuntu ${UBUNTU_VERSION}"
-  # install the dependencies
-  echo "Installing dependencies"
-  apt-get install -y libaio1
-  echo "installing SDC"
-  cd "${PROJECT_DIR}/scaleio"
-  tar -xvf  EMC-ScaleIO-sdc-${RPMVERSION}*${UBUNTU_VERSION}.x86_64.tar
-  ./siob_extract EMC-*.siob
-  dpkg -i EMC-*.deb
-  # copy in the scaleio scini update config file
-  cp "${PROJECT_DIR}/scaleio/driver_sync.conf" /bin/emc/scaleio/scini_sync
-  # restart scini to laod the right kernel module
-  echo "restarting the scini service"
-  /etc/init.d/scini restart
-elif [ "${VARIANT}" == "CentOS" ]; then
-  echo "Installing ScaleIO SDC..."
-  # install the dependencies
-  echo "Installing dependencies"
-  yum install -y libaio
-  echo "installing SDC"
-  rpm -U "${PROJECT_DIR}/scaleio/EMC-ScaleIO-sdc-${RPMVERSION}*el7.x86_64.rpm"
+  cd "/tmp"
+
+  export MDM_IP="${CINDER_SIO_MDM_IPS}"
+
+  if [ "${VARIANT}" == "Ubuntu" ]; then
+    # fetch the bits
+    wget -r -nd --no-parent -A '*.tar' "${SDC_LOCATION}"
+    echo "Installing ScaleIO SDC.. for Ubuntu ${OS_VER}"
+    # install the dependencies
+    echo "Installing dependencies"
+    apt-get install -y libaio1
+    echo "installing SDC"
+    tar -xvf EMC-ScaleIO-sdc-${RPMVERSION}*${OS_VER}.x86_64.tar
+    ./siob_extract EMC-*.siob
+    dpkg -i EMC-*.deb
+    # copy in the scaleio scini update config file
+    cp "${PROJECT_DIR}/scaleio/driver_sync.conf" /bin/emc/scaleio/scini_sync
+    # restart scini to laod the right kernel module
+    echo "restarting the scini service"
+    /etc/init.d/scini restart
+  elif [ "${VARIANT}" == "CentOS" -o "${VARIANT}" == "RedHat" ]; then
+    # fetch the bits
+    wget -r -nd --no-parent -A '*.rpm' "${SDC_LOCATION}"
+    echo "Installing ScaleIO SDC..."
+    # install the dependencies
+    echo "Installing dependencies"
+    yum install -y libaio
+    echo "installing SDC"
+    yum localinstall EMC-ScaleIO-sdc-${RPMVERSION}*el7.x86_64.rpm
+  fi
 fi
+
 
 SDCGUID=`/bin/emc/scaleio/drv_cfg --query_guid`
 
