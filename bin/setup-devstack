@@ -290,7 +290,7 @@ if [ ! -z "${SDC_LOCATION}" ]; then
 
   if [ "${VARIANT}" == "Ubuntu" ]; then
     # fetch the bits
-    wget -r -nd --no-parent -A '*.tar' "${SDC_LOCATION}"
+    wget -r -nd --no-parent -A '*sdc*.tar' "${SDC_LOCATION}"
     echo "Installing ScaleIO SDC.. for Ubuntu ${OS_VER}"
     # install the dependencies
     echo "Installing dependencies"
@@ -306,13 +306,13 @@ if [ ! -z "${SDC_LOCATION}" ]; then
     /etc/init.d/scini restart
   elif [ "${VARIANT}" == "CentOS" -o "${VARIANT}" == "RedHat" ]; then
     # fetch the bits
-    wget -r -nd --no-parent -A '*.rpm' "${SDC_LOCATION}"
+    wget -r -nd --no-parent -A '*sdc*.rpm' "${SDC_LOCATION}"
     echo "Installing ScaleIO SDC..."
     # install the dependencies
     echo "Installing dependencies"
     yum install -y libaio
     echo "installing SDC"
-    yum localinstall EMC-ScaleIO-sdc-${RPMVERSION}*el7.x86_64.rpm
+    yum localinstall -y EMC-ScaleIO-sdc-${RPMVERSION}*el7.x86_64.rpm
   fi
 fi
 
