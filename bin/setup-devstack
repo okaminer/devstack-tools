@@ -57,8 +57,6 @@ SIO_PASSWORD=${SIO_PASSWORD:-Scaleio123}
 CINDER_SIO_GATEWAYPORT=${CINDER_SIO_GATEWAYPORT:-443}
 # verify certs or not, default is false
 VERIFYCERTS=${VERIFYCERTS:-False}
-# URL to retrieve the SDC install bits from
-SDC_LOCATION=${SDC_LOCATION:""}
 
 function usage {
   echo
@@ -187,6 +185,7 @@ if [ "${VARIANT}" == "Ubuntu" ]; then
      python2.7-dev \
      python3-dev \
      screen \
+     wget \
      virtualenv
 elif [ "${VARIANT}" == "CentOS" ]; then
   # add the repo that contains python3.5 (needed for tox tests)
@@ -197,6 +196,7 @@ elif [ "${VARIANT}" == "CentOS" ]; then
      python35u-devel \
      python-pip \
      screen \
+     wget \
      yum-utils
 fi
 
@@ -271,7 +271,7 @@ fi
 
 #
 # Now setup the ScaleIO SDC
-if [ -z "${SDC_LOCATION}" ]; then
+if [ ! -z "${SDC_LOCATION}" ]; then
   # determine which version of ScaleIO we are talking to
   SIOVERSION=`curl -k -m 5 https://${CINDER_SIO_GATEWAY}:${CINDER_SIO_GATEWAYPORT}/api/version 2>/dev/null`
   # by default, install the oldest version
