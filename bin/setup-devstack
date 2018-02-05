@@ -317,7 +317,12 @@ if [ ! -z "${SDC_LOCATION}" ]; then
 fi
 
 
-SDCGUID=`/bin/emc/scaleio/drv_cfg --query_guid`
+SDCGUID=`/bin/emc/scaleio/drv_cfg --query_guid 2>/dev/null`
+if [ -z "${SDCGUID}" ]; then
+  echo "************************************************************"
+  echo "ERROR: The ScaleIO SDC does not seem to be installed/working"
+  echo "************************************************************"
+fi
 
 get_gateway_cert
 
