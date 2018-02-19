@@ -1,0 +1,19 @@
+#!/bin/bash
+#
+# Script to setup environment for manila development
+
+if [ ! -d "/opt/stack" ]; then
+  sudo mkdir -p "/opt/stack"
+  sudo chmod -R 777 "/opt/stack"
+fi
+
+# make sure the tempest plugin repo is pulled dwon
+cd "/opt/stack"
+git clone http://github.com/openstack/manila-tempest-plugin
+
+# change the local.conf file to enable the manila plugins
+sed -i -e "s|## enable_plugin manila|enable_plugin manila|g" /git/devstack/local.conf
+
+
+echo "All done."
+
