@@ -198,6 +198,9 @@ elif [ "${VARIANT}" == "CentOS" ]; then
      screen \
      wget \
      yum-utils
+  yum -y remove python-setuptools
+  curl https://bootstrap.pypa.io/ez_setup.py | python
+  curl https://bootstrap.pypa.io/get-pip.py | python
 fi
 
 #
